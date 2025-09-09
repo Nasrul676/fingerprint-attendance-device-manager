@@ -1,0 +1,28 @@
+# Flask and web framework dependencies
+Flask==2.3.3
+Werkzeug==2.3.7
+flask-toastr==0.5.15
+
+# SQL Server database driver
+pyodbc>=5.0.0
+
+# Fingerprint device library
+pyzk==0.9
+
+# Data processing
+pandas==2.1.1
+
+# Environment variables
+python-dotenv==1.0.0
+
+# Scheduling for worker
+schedule==1.2.0
+
+# Production WSGI server
+gunicorn==21.2.0
+
+# Development dependencies (optional for production)
+pytest==7.4.2
+pytest-flask==1.2.0
+black==23.7.0
+flake8==6.0.0
