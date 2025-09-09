@@ -11,6 +11,10 @@ from config.devices import (
     get_device_display_name
 )
 from app.models.attendance import AttendanceModel
+from config.logging_config import get_streaming_logger
+
+# Setup logging
+logger = get_streaming_logger()
 
 class StreamingService:
     """Service for handling real-time data streaming from fingerprint devices"""
@@ -57,7 +61,7 @@ class StreamingService:
             try:
                 callback(notification)
             except Exception as e:
-                print(f"Error calling notification callback: {e}")
+                logger.error(f"Error calling notification callback: {e}")
     
     def _get_status_display(self, device_name, status):
         """Get human-readable status display (deprecated - use config.devices)"""
@@ -112,7 +116,7 @@ class StreamingService:
     def _handle_device(self, device_info):
         """Handle streaming from a single device"""
         device_name = device_info['name']
-        print(f"[{device_name}] Starting streaming thread...")
+        logger.info(f"[{device_name}] Starting streaming thread...")
         
         zk = ZK(device_info['ip'], port=device_info['port'], timeout=30, password=device_info['password'])
         
@@ -121,18 +125,18 @@ class StreamingService:
             db_conn = None
             cursor = None
             try:
-                print(f"[{device_name}] Connecting to device...")
+                logger.info(f"[{device_name}] Connecting to device...")
                 zk_conn = zk.connect()
-                print(f"[{device_name}] Device connected successfully!")
+                logger.info(f"[{device_name}] Device connected successfully!")
                 
                 db_conn = self.db_manager.get_sqlserver_connection()
                 if not db_conn:
                     raise Exception("Cannot get database connection")
                 
                 cursor = db_conn.cursor()
-                print(f"[{device_name}] Database connected successfully.")
+                logger.info(f"[{device_name}] Database connected successfully.")
                 
-                print(f"[{device_name}] Waiting for attendance data...")
+                logger.info(f"[{device_name}] Waiting for attendance data...")
                 for attendance in zk_conn.live_capture():
                     if not self.running:
                         break
@@ -140,7 +144,7 @@ class StreamingService:
                     if attendance is None:
                         continue
                     
-                    print(f"[{device_name}] Data received: User ID: {attendance.user_id}, Time: {attendance.timestamp}")
+                    logger.info(f"[{device_name}] Data received: User ID: {attendance.user_id}, Time: {attendance.timestamp}")
                     
                     try:
                         # Use config function to determine status
@@ -154,20 +158,20 @@ class StreamingService:
                             
                             # Use status as-is since status column is varchar
                             status = status_val
-                            print(f"   -> [{device_name}] Using status: {status}")
+                            logger.debug(f"   -> [{device_name}] Using status: {status}")
                             
                             # Ensure fpid is integer
                             try:
                                 fpid = int(attendance.uid) if attendance.uid is not None else 0
                             except (ValueError, TypeError):
-                                print(f"   -> [{device_name}] Invalid uid value '{attendance.uid}', using 0")
+                                logger.warning(f"   -> [{device_name}] Invalid uid value '{attendance.uid}', using 0")
                                 fpid = 0
                             
                             query = "INSERT INTO FPLog (PIN, Date, Machine, Status, fpid) VALUES (?, ?, ?, ?, ?)"
                             data_to_insert = (pin, timestamp, machine, status, fpid)
                             cursor.execute(query, data_to_insert)
                             db_conn.commit()
-                            print(f"   -> [{device_name}] Data saved to FPLog successfully.")
+                            logger.info(f"   -> [{device_name}] Data saved to FPLog successfully.")
                             
                             # Add to attendance queue for worker processing
                             try:
@@ -183,12 +187,12 @@ class StreamingService:
                                 )
                                 
                                 if queue_success:
-                                    print(f"   -> [{device_name}] Data added to attendance queue: {queue_message}")
+                                    logger.info(f"   -> [{device_name}] Data added to attendance queue: {queue_message}")
                                 else:
-                                    print(f"   -> [{device_name}] Warning: Failed to add to attendance queue: {queue_message}")
+                                    logger.warning(f"   -> [{device_name}] Warning: Failed to add to attendance queue: {queue_message}")
                                     
                             except Exception as queue_error:
-                                print(f"   -> [{device_name}] Warning: Failed to add to attendance queue: {queue_error}")
+                                logger.warning(f"   -> [{device_name}] Warning: Failed to add to attendance queue: {queue_error}")
                             
                             # Add notification for new data
                             self._add_notification(
@@ -200,10 +204,10 @@ class StreamingService:
                             )
                             
                         else:
-                            print(f"   -> [{device_name}] Status {attendance.punch} ignored.")
+                            logger.debug(f"   -> [{device_name}] Status {attendance.punch} ignored.")
                             
                     except Exception as e:
-                        print(f"   -> [{device_name}] Failed to save data: {e}")
+                        logger.error(f"   -> [{device_name}] Failed to save data: {e}")
                         # Add error notification
                         self._add_notification(
                             notification_type='error',
@@ -214,11 +218,11 @@ class StreamingService:
                         )
                         
             except Exception as e:
-                print(f"[{device_name}] Streaming error: {e}. Retrying in 30 seconds...")
+                logger.error(f"[{device_name}] Streaming error: {e}. Retrying in 30 seconds...")
             finally:
                 if zk_conn and zk_conn.is_connect:
                     zk_conn.disconnect()
-                    print(f"[{device_name}] Device connection closed.")
+                    logger.info(f"[{device_name}] Device connection closed.")
                 if cursor:
                     try:
                         cursor.close()
@@ -227,7 +231,7 @@ class StreamingService:
                 if db_conn:
                     try:
                         db_conn.close()
-                        print(f"[{device_name}] Database connection closed.")
+                        logger.info(f"[{device_name}] Database connection closed.")
                     except:
                         pass  # Connection might already be closed
             
