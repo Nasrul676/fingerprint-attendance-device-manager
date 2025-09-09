@@ -110,6 +110,28 @@ DEVICE_STATUS_RULES = {
         'punch_3': 1,  # fpid 3 → status 1 (Out)
         'punch_other': 0  # Default to In
     },
+    '103': {
+        'punch_0': 'I',     # fpid 0 → status 'I' (huruf besar)
+        'punch_1': 'O',     # fpid 1 → status 'O' (huruf besar)
+        'punch_4': 'i',     # fpid 4 → status 'i' (huruf kecil)
+        'punch_5': 'o',     # fpid 5 → status 'o' (huruf kecil)
+        'punch_i': 'i',     # untuk punch 'i' → status 'i'
+        'punch_other': 'I'  # Default to 'I'
+    },
+    '201': {
+        'punch_0': 'I',     # fpid 0 → status 'I' (masuk)
+        'punch_1': 'O',     # fpid 1 → status 'O' (keluar)
+        'punch_4': 'i',     # fpid 4 → status 'i' (masuk kecil)
+        'punch_5': 'o',     # fpid 5 → status 'o' (keluar kecil)
+        'punch_other': 'I'  # Default to 'I'
+    },
+    '203': {
+        'punch_0': 'I',     # fpid 0 → status 'I' (masuk)
+        'punch_1': 'O',     # fpid 1 → status 'O' (keluar)
+        'punch_4': 'i',     # fpid 4 → status 'i' (masuk kecil)
+        'punch_5': 'o',     # fpid 5 → status 'o' (keluar kecil)
+        'punch_other': 'O'  # Default to 'O' for P1 Pulang device
+    },
     'default': {
         'punch_0': 'I',  # In
         'punch_1': 'O'   # Out
@@ -124,7 +146,9 @@ DEVICE_DISPLAY_NAMES = {
     '110': 'Blowing',
     '108': 'Karung',
     '102': 'P2-OUT',
-    '103': 'Makan'
+    '103': 'Makan',
+    '201': 'P1 Masuk',
+    '203': 'P1 Pulang'
 }
 
 # === Helper Functions ===
@@ -157,137 +181,107 @@ def determine_status(device_name, punch_code):
     """
     Determine attendance status based on device name and punch code
     Returns status value (I/O for string devices, 0/1 for binary devices)
-    """
-    # Check if device has specific rules
-    if device_name in DEVICE_STATUS_RULES:
-        rules = DEVICE_STATUS_RULES[device_name]
-        
-        # Handle special case for device 102
-        if device_name == '102':
-            if punch_code == 2:
-                return rules['punch_2']
-            elif punch_code == 3:
-                return rules['punch_3']
-            else:
-                return rules['punch_other']
-        
-        # Handle device 104 (P2-IN) with specific punch code mapping
-        elif device_name == '104':
-            if punch_code == 0:
-                return rules['punch_0']
-            elif punch_code == 4:
-                return rules['punch_4']
-            elif punch_code == 255:
-                return rules['punch_255']
-            else:
-                return rules['punch_other']
-        
-        # Handle device 108 (Karung) with specific punch code mapping
-        elif device_name == '108':
-            if punch_code == 0:
-                return rules['punch_0']
-            elif punch_code == 1:
-                return rules['punch_1']
-            elif punch_code == 4:
-                return rules['punch_4']
-            elif punch_code == 5:
-                return rules['punch_5']
-            elif punch_code == 'i':
-                return rules['punch_i']
-            else:
-                return rules['punch_other']
-        
-        # Handle device 111 (Pelet) with specific punch code mapping
-        elif device_name == '111':
-            if punch_code == 0:
-                return rules['punch_0']
-            elif punch_code == 1:
-                return rules['punch_1']
-            elif punch_code == 4:
-                return rules['punch_4']
-            elif punch_code == 5:
-                return rules['punch_5']
-            elif punch_code == 'i':
-                return rules['punch_i']
-            else:
-                return rules['punch_other']
-        
-        # Handle device 110 (Blowing) with specific punch code mapping
-        elif device_name == '110':
-            if punch_code == 0:
-                return rules['punch_0']
-            elif punch_code == 1:
-                return rules['punch_1']
-            elif punch_code == 4:
-                return rules['punch_4']
-            elif punch_code == 5:
-                return rules['punch_5']
-            elif punch_code == 'i':
-                return rules['punch_i']
-            else:
-                return rules['punch_other']
     
-    # Use default rules
-    default_rules = DEVICE_STATUS_RULES['default']
-    if punch_code == 0:
-        return default_rules['punch_0']
-    elif punch_code == 1:
-        return default_rules['punch_1']
-    else:
-        return punch_code
-    # Return None if punch code is not recognized
-    return None
+    Args:
+        device_name (str): Name of the device (e.g., '104', '108', etc.)
+        punch_code (int/str): Punch code from the device
+    
+    Returns:
+        str/int: Status value based on device rules
+    """
+    try:
+        # Convert punch_code to proper type if needed
+        if isinstance(punch_code, str) and punch_code.isdigit():
+            punch_code = int(punch_code)
+        
+        # Check if device has specific rules
+        if device_name in DEVICE_STATUS_RULES:
+            rules = DEVICE_STATUS_RULES[device_name]
+            
+            # Handle special case for device 102 (binary status)
+            if device_name == '102':
+                if punch_code == 2:
+                    return rules['punch_2']
+                elif punch_code == 3:
+                    return rules['punch_3']
+                else:
+                    return rules['punch_other']
+            
+            # Handle other devices with string status
+            else:
+                # Create punch key for lookup
+                punch_key = f'punch_{punch_code}'
+                
+                # Direct lookup for numeric punch codes
+                if punch_key in rules:
+                    return rules[punch_key]
+                
+                # Handle special string punch codes
+                elif punch_code == 'i' and 'punch_i' in rules:
+                    return rules['punch_i']
+                elif punch_code == 'o' and 'punch_o' in rules:
+                    return rules['punch_o']
+                
+                # Use default for device
+                else:
+                    return rules.get('punch_other', 'I')
+        
+        # Use default rules for devices without specific configuration
+        default_rules = DEVICE_STATUS_RULES['default']
+        if punch_code == 0:
+            return default_rules['punch_0']
+        elif punch_code == 1:
+            return default_rules['punch_1']
+        else:
+            # Return the punch code itself if no mapping found
+            return 'I'  # Default to 'I' (In) for unknown punch codes
+            
+    except Exception as e:
+        # Log error and return safe default
+        print(f"Error determining status for device {device_name}, punch {punch_code}: {e}")
+        return 'I'  # Safe default
 
 def get_status_display(device_name, punch_code):
     """
-    Get human-readable status display text
+    Get human-readable status display text based on device and punch code
+    
+    Args:
+        device_name (str): Name of the device
+        punch_code (int/str): Punch code from device
+    
+    Returns:
+        str: Human-readable status ('Masuk', 'Keluar', 'Istirahat', 'Unknown')
     """
-    status = determine_status(device_name, punch_code)
-    
-    # Handle device 104 special status values
-    if device_name == '104':
-        if status in ['I', 'i']:
-            return 'Masuk'
-        elif status in ['O', 'o']:
-            return 'Keluar'
+    try:
+        # Get the status value using determine_status
+        status = determine_status(device_name, punch_code)
+        
+        # Handle binary status devices (like 102)
+        if isinstance(status, int):
+            if status == 0:
+                return 'Masuk'
+            elif status == 1:
+                return 'Keluar'
+            else:
+                return 'Unknown'
+        
+        # Handle string status devices
+        elif isinstance(status, str):
+            if status.upper() == 'I':
+                return 'Masuk'
+            elif status.upper() == 'O':
+                return 'Keluar'
+            elif status.upper() == 'B':
+                return 'Istirahat'
+            else:
+                return 'Unknown'
+        
+        # Fallback for unknown status types
         else:
             return 'Unknown'
-    
-    # Handle device 108 special status values
-    elif device_name == '108':
-        if status in ['I', 'i']:
-            return 'Masuk'
-        elif status in ['O', 'o']:
-            return 'Keluar'
-        else:
-            return 'Unknown'
-    
-    # Handle device 111 special status values
-    elif device_name == '111':
-        if status in ['I', 'i']:
-            return 'Masuk'
-        elif status in ['O', 'o']:
-            return 'Keluar'
-        else:
-            return 'Unknown'
-    
-    # Handle device 110 special status values
-    elif device_name == '110':
-        if status in ['I', 'i']:
-            return 'Masuk'
-        elif status in ['O', 'o']:
-            return 'Keluar'
-        else:
-            return 'Unknown'
-    
-    # Default logic for other devices
-    if status == 'I' or status == 0:
-        return 'Masuk'
-    elif status == 'O' or status == 1:
-        return 'Keluar'
-    elif status == 'B':
-        return 'Istirahat'
-    else:
+            
+    except Exception as e:
+        print(f"Error getting status display for device {device_name}, punch {punch_code}: {e}")
         return 'Unknown'
 
 def validate_device_config():

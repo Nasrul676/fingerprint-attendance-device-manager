@@ -139,8 +139,8 @@ class SyncService:
             attid_mapping = self._get_employee_attid_mapping()
             fpid_mapped_count = 0
             
-            for att in filtered_data:
-                print(f"Processing attendance record: {att}")
+            for i, att in enumerate(filtered_data):
+                print(f"Processing attendance record {i+1}: {att}")
                 
                 # Get PIN from attendance record
                 pin = str(att.user_id).strip()
@@ -153,11 +153,17 @@ class SyncService:
                 else:
                     print(f"PIN {pin} not found in employees or attid is NULL")
                 
+                # Determine status using device-specific rules
+                device_status = determine_status(device_name, att.punch)
+                status_display = get_status_display(device_name, att.punch)
+                
+                print(f"Record {i+1}: PIN {pin}, Punch {att.punch} -> Status: {device_status} ({status_display})")
+                
                 fplog_data.append({
                     'PIN': pin,
                     'Date': att.timestamp.strftime('%Y-%m-%d %H:%M:%S'),
                     'Machine': device_name,
-                    'Status': determine_status(device_name, att.punch),
+                    'Status': device_status,
                     'fpid': fpid_value  # Now using attid from employees table
                 })
             

@@ -147,8 +147,9 @@ class StreamingService:
                     logger.info(f"[{device_name}] Data received: User ID: {attendance.user_id}, Time: {attendance.timestamp}")
                     
                     try:
-                        # Use config function to determine status
+                        # Use config function to determine status with enhanced logging
                         status_val = determine_status(device_name, attendance.punch)
+                        status_display = get_status_display(device_name, attendance.punch)
                         
                         if status_val is not None:
                             # Validate and convert data types to prevent SQL Server errors
@@ -158,7 +159,7 @@ class StreamingService:
                             
                             # Use status as-is since status column is varchar
                             status = status_val
-                            logger.debug(f"   -> [{device_name}] Using status: {status}")
+                            logger.debug(f"   -> [{device_name}] Punch code {attendance.punch} -> Status: {status} ({status_display})")
                             
                             # Ensure fpid is integer
                             try:
