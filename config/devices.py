@@ -54,88 +54,65 @@ FINGERPRINT_DEVICES = [
         'description': 'Makan',
         'location': 'Makan'
     },
-    # {
-    #     'name': '201',
-    #     'ip': '10.163.3.205',
-    #     'port': 4370,
-    #     'password': 12345,
-    #     'description': 'P1 Masuk',
-    #     'location': 'P1'
-    # },
-    # {
-    #     'name': '203',
-    #     'ip': '10.163.3.228',
-    #     'port': 4370,
-    #     'password': 12345,
-    #     'description': 'P1 Pulang',
-    #     'location': 'P1'
-    # }
+    {
+        'name': '201',
+        'ip': '10.163.3.205',
+        'port': 4370,
+        'password': 12345,
+        'description': 'P1 Masuk',
+        'location': 'P1'
+    },
+    {
+        'name': '203',
+        'ip': '10.163.3.228',
+        'port': 4370,
+        'password': 12345,
+        'description': 'P1 Pulang',
+        'location': 'P1'
+    }
 ]
 
 # === Device Status Mapping Rules ===
 # Rules for determining attendance status based on device and punch code
 DEVICE_STATUS_RULES = {
-    # Mesin Produksi: Menghasilkan I/O untuk attrecord, dan i/o untuk spJamkerja
-    '108': {
-        'punch_0': 'I',      # Untuk Masuk Utama (dibaca attrecord)
-        'punch_1': 'O',      # Untuk Pulang Utama (dibaca attrecord)
-        'punch_4': 'i',      # Untuk Break Out (dibaca spJamkerja)
-        'punch_5': 'o',      # Untuk Break In (dibaca spJamkerja)
-        'punch_i': 'i',      # Untuk Break Out (dibaca spJamkerja)
-        'punch_other': 'I'
-    },
-    '111': { # Aturan sama dengan 108
-        'punch_0': 'I',
-        'punch_1': 'O',
-        'punch_4': 'i',
-        'punch_5': 'o',
-        'punch_i': 'i',
-        'punch_other': 'I'
-    },
-    '110': { # Aturan sama dengan 108
-        'punch_0': 'I',
-        'punch_1': 'O',
-        'punch_4': 'i',
-        'punch_5': 'o',
-        'punch_i': 'i',
-        'punch_other': 'I'
-    },
-    
-    # Mesin Kantor yang sudah disesuaikan untuk attrecord
     '104': {
-        'punch_0': 'I',
-        'punch_4': 'I',
-        'punch_255': 'I',
-        'punch_other': 'I'
+        'punch_0': 'I',     # fpid 0 → status 'I' (100% konsisten)
+        'punch_4': 'i',     # fpid 4 → status 'i' (89% dominan)
+        'punch_255': 'I',   # fpid 255 → status 'I' (100% konsisten)
+        'punch_other': 'I'  # Default to 'I'
+    },
+    '108': {
+        'punch_0': 'I',     # fpid 0 → status 'I' (huruf besar)
+        'punch_1': 'O',     # fpid 1 → status 'O' (huruf besar)
+        'punch_4': 'i',     # fpid 4 → status 'i' (huruf kecil)
+        'punch_5': 'o',     # fpid 5 → status 'o' (huruf kecil)
+        'punch_i': 'i',     # untuk punch 'i' → status 'i'
+        'punch_other': 'I'  # Default to 'I'
+    },
+    '111': {
+        'punch_0': 'I',     # fpid 0 → status 'I' (huruf besar)
+        'punch_1': 'O',     # fpid 1 → status 'O' (huruf besar)
+        'punch_4': 'i',     # fpid 4 → status 'i' (huruf kecil)
+        'punch_5': 'o',     # fpid 5 → status 'o' (huruf kecil)
+        'punch_i': 'i',     # untuk punch 'i' → status 'i'
+        'punch_other': 'I'  # Default to 'I'
+    },
+    '110': {
+        'punch_0': 'I',     # fpid 0 → status 'I' (huruf besar)
+        'punch_1': 'O',     # fpid 1 → status 'O' (huruf besar)
+        'punch_4': 'i',     # fpid 4 → status 'i' (huruf kecil)
+        'punch_5': 'o',     # fpid 5 → status 'o' (huruf kecil)
+        'punch_i': 'i',     # untuk punch 'i' → status 'i'
+        'punch_other': 'I'  # Default to 'I'
     },
     '102': {
-        'punch_2': 0,
-        'punch_3': 1,
-        'punch_other': 0
+        'punch_2': 0,  # fpid 2 → status 0 (In)
+        'punch_3': 1,  # fpid 3 → status 1 (Out)
+        'punch_other': 0  # Default to In
     },
-
-    # Aturan BARU untuk status yang hanya ada di spJamkerja
-    # '201': {
-    #     # Menghasilkan status untuk Masuk Utama DAN status untuk Break In
-    #     'punch_0': 'P1 MASUK-1',   # Asumsi punch 0 (dibaca attrecord)
-    #     'punch_4': 'P1 MASUK-4',   # Asumsi punch 4 (dibaca spJamkerja)
-    #     'punch_other': 'P1 MASUK-1'
-    # },
-    # '203': {
-    #     # Menghasilkan status untuk Pulang Utama DAN status untuk Break Out
-    #     'punch_1': 'P1 PULANG-2',   # Asumsi punch 1 (dibaca attrecord)
-    #     'punch_3': 'P1 PULANG-3',   # Asumsi punch 3 (dibaca spJamkerja)
-    #     'punch_other': 'P1 PULANG-2'
-    # },
-    
-    # Aturan Default
     'default': {
-        'punch_0': 'I',
-        'punch_1': 'O',
-        'punch_4': 'i',
-        'punch_5': 'o',
-        'punch_i': 'i',
-        'punch_other': 'I'
+        'punch_0': 'I',  # In
+        'punch_1': 'O'   # Out
     }
 }
 

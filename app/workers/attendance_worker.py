@@ -9,19 +9,10 @@ import threading
 from datetime import datetime, timedelta
 from collections import defaultdict
 from app.models.attendance import AttendanceModel
-import logging
+from config.logging_config import get_worker_logger
 
-# Setup logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler('logs/attendance_worker.log'),
-        logging.StreamHandler()
-    ]
-)
-
-logger = logging.getLogger('AttendanceWorker')
+# Setup logging with Unicode support
+logger = get_worker_logger()
 
 class AttendanceWorker:
     """Worker untuk memproses antrian absensi dan menjalankan prosedur SQL"""
@@ -50,7 +41,7 @@ class AttendanceWorker:
             
             # Proses setiap kelompok tanggal
             for date_str, records in date_groups.items():
-                logger.info(f"📅 Memproses tanggal: {date_str} ({len(records)} records)")
+                logger.info(f"[DATE] Memproses tanggal: {date_str} ({len(records)} records)")
                 
                 # Update status menjadi 'diproses' sebelum menjalankan prosedur
                 self._update_records_status(records, 'diproses')
@@ -155,11 +146,11 @@ class AttendanceWorker:
                 logger.error(f"[ERROR] Error dalam scheduler loop: {str(e)}")
                 time.sleep(60)
         
-        logger.info("🛑 Attendance Worker dihentikan")
+        logger.info("[STOP] Attendance Worker dihentikan")
     
     def stop_scheduler(self):
         """Menghentikan scheduler worker"""
-        logger.info("🛑 Menghentikan Attendance Worker...")
+        logger.info("[STOP] Menghentikan Attendance Worker...")
         self.is_running = False
         self._stop_event.set()
         schedule.clear()
