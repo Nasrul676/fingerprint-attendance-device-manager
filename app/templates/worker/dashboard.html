@@ -1,0 +1,435 @@
+{% extends "base.html" %}
+
+{% block title %}Attendance Worker Dashboard{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Page Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-0">Attendance Worker Dashboard</h1>
+            <p class="text-muted mb-0">Monitor dan kelola worker untuk pemrosesan antrian absensi</p>
+        </div>
+        <div>
+            <button class="btn btn-outline-secondary" onclick="refreshStatus()">
+                <i class="fas fa-refresh"></i> Refresh
+            </button>
+        </div>
+    </div>
+
+    <!-- Worker Status Card -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-cog"></i> Status Worker
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-6">
+                            <strong>Status:</strong>
+                        </div>
+                        <div class="col-6">
+                            <span id="workerStatus" class="badge">
+                                {% if status.is_running %}
+                                    <span class="badge bg-success">Berjalan</span>
+                                {% else %}
+                                    <span class="badge bg-danger">Berhenti</span>
+                                {% endif %}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="row mt-2">
+                        <div class="col-6">
+                            <strong>Thread:</strong>
+                        </div>
+                        <div class="col-6">
+                            <span id="threadStatus">
+                                {% if status.thread_alive %}
+                                    <span class="badge bg-success">Aktif</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">Tidak Aktif</span>
+                                {% endif %}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="row mt-2">
+                        <div class="col-6">
+                            <strong>Jadwal:</strong>
+                        </div>
+                        <div class="col-6">
+                            <span id="scheduleInfo">{{ status.schedule_info or 'Belum dijadwalkan' }}</span>
+                        </div>
+                    </div>
+                    <div class="row mt-2">
+                        <div class="col-6">
+                            <strong>Next Run:</strong>
+                        </div>
+                        <div class="col-6">
+                            <span id="nextRun">
+                                {% if status.next_run %}
+                                    {{ status.next_run.strftime('%Y-%m-%d %H:%M:%S') }}
+                                {% else %}
+                                    Belum ada jadwal
+                                {% endif %}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <div class="btn-group w-100" role="group">
+                        <button id="startBtn" class="btn btn-success" onclick="startWorker()" 
+                                {% if status.is_running %}disabled{% endif %}>
+                            <i class="fas fa-play"></i> Start
+                        </button>
+                        <button id="stopBtn" class="btn btn-danger" onclick="stopWorker()"
+                                {% if not status.is_running %}disabled{% endif %}>
+                            <i class="fas fa-stop"></i> Stop
+                        </button>
+                        <button id="runNowBtn" class="btn btn-warning" onclick="runNow()">
+                            <i class="fas fa-bolt"></i> Run Now
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-list"></i> Statistik Antrian
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if status.queue_stats %}
+                        <div class="row mb-2">
+                            <div class="col-6">
+                                <strong>Total Records:</strong>
+                            </div>
+                            <div class="col-6">
+                                <span class="badge bg-primary">{{ status.queue_stats.total }}</span>
+                            </div>
+                        </div>
+                        
+                        {% for status_name, count in status.queue_stats.by_status.items() %}
+                        <div class="row mb-1">
+                            <div class="col-6">
+                                Status "{{ status_name }}":
+                            </div>
+                            <div class="col-6">
+                                <span class="badge bg-{{ 'warning' if status_name == 'diproses' else 'info' if status_name == 'baru' else 'success' }}">
+                                    {{ count }}
+                                </span>
+                            </div>
+                        </div>
+                        {% endfor %}
+                        
+                        {% if status.queue_stats.baru_dates %}
+                        <hr>
+                        <strong>Tanggal yang akan diproses:</strong>
+                        <div class="mt-2">
+                            {% for date in status.queue_stats.baru_dates %}
+                                <span class="badge bg-info me-1">{{ date }}</span>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                    {% else %}
+                        <p class="text-muted">Tidak dapat memuat statistik antrian</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Log Recent Activity -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-file-alt"></i> Activity Log
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div id="activityLog" class="bg-dark text-light p-3 rounded" style="height: 300px; overflow-y: auto;">
+                        <div class="text-muted">Log akan muncul di sini...</div>
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <button class="btn btn-sm btn-outline-secondary" onclick="clearLog()">
+                        <i class="fas fa-trash"></i> Clear Log
+                    </button>
+                    <button class="btn btn-sm btn-outline-secondary" onclick="downloadLog()">
+                        <i class="fas fa-download"></i> Download Log
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Toast Container -->
+<div id="toastContainer" class="toast-container position-fixed bottom-0 end-0 p-3"></div>
+
+<script>
+let logMessages = [];
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Auto-refresh setiap 30 detik
+    setInterval(refreshStatus, 30000);
+    
+    // Load initial log
+    addLogMessage('info', 'Dashboard worker dimuat');
+});
+
+function refreshStatus() {
+    fetch('/api/worker/status')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                updateStatusDisplay(data.data);
+            } else {
+                showToast('Error refresh status: ' + data.message, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showToast('Error refresh status', 'error');
+        });
+}
+
+function updateStatusDisplay(status) {
+    // Update worker status
+    const workerStatusEl = document.getElementById('workerStatus');
+    if (status.is_running) {
+        workerStatusEl.innerHTML = '<span class="badge bg-success">Berjalan</span>';
+        document.getElementById('startBtn').disabled = true;
+        document.getElementById('stopBtn').disabled = false;
+    } else {
+        workerStatusEl.innerHTML = '<span class="badge bg-danger">Berhenti</span>';
+        document.getElementById('startBtn').disabled = false;
+        document.getElementById('stopBtn').disabled = true;
+    }
+    
+    // Update thread status
+    const threadStatusEl = document.getElementById('threadStatus');
+    if (status.thread_alive) {
+        threadStatusEl.innerHTML = '<span class="badge bg-success">Aktif</span>';
+    } else {
+        threadStatusEl.innerHTML = '<span class="badge bg-secondary">Tidak Aktif</span>';
+    }
+    
+    // Update next run
+    const nextRunEl = document.getElementById('nextRun');
+    if (status.next_run) {
+        nextRunEl.textContent = new Date(status.next_run).toLocaleString('id-ID');
+    } else {
+        nextRunEl.textContent = 'Belum ada jadwal';
+    }
+}
+
+function startWorker() {
+    const startBtn = document.getElementById('startBtn');
+    const originalText = startBtn.innerHTML;
+    startBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Starting...';
+    startBtn.disabled = true;
+    
+    fetch('/api/worker/start', { method: 'POST' })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showToast(data.message, 'success');
+                addLogMessage('success', 'Worker berhasil dimulai');
+                setTimeout(refreshStatus, 1000);
+            } else {
+                showToast(data.message, 'error');
+                addLogMessage('error', 'Gagal memulai worker: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showToast('Error starting worker', 'error');
+            addLogMessage('error', 'Error starting worker: ' + error.message);
+        })
+        .finally(() => {
+            startBtn.innerHTML = originalText;
+            setTimeout(refreshStatus, 1000);
+        });
+}
+
+function stopWorker() {
+    const stopBtn = document.getElementById('stopBtn');
+    const originalText = stopBtn.innerHTML;
+    stopBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Stopping...';
+    stopBtn.disabled = true;
+    
+    fetch('/api/worker/stop', { method: 'POST' })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showToast(data.message, 'success');
+                addLogMessage('success', 'Worker berhasil dihentikan');
+                setTimeout(refreshStatus, 1000);
+            } else {
+                showToast(data.message, 'error');
+                addLogMessage('error', 'Gagal menghentikan worker: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showToast('Error stopping worker', 'error');
+            addLogMessage('error', 'Error stopping worker: ' + error.message);
+        })
+        .finally(() => {
+            stopBtn.innerHTML = originalText;
+            setTimeout(refreshStatus, 1000);
+        });
+}
+
+function runNow() {
+    const runNowBtn = document.getElementById('runNowBtn');
+    const originalText = runNowBtn.innerHTML;
+    runNowBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Running...';
+    runNowBtn.disabled = true;
+    
+    fetch('/api/worker/run-now', { method: 'POST' })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showToast(data.message, 'success');
+                addLogMessage('info', 'Pemrosesan manual dimulai');
+            } else {
+                showToast(data.message, 'error');
+                addLogMessage('error', 'Gagal menjalankan pemrosesan manual: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showToast('Error running worker', 'error');
+            addLogMessage('error', 'Error running worker: ' + error.message);
+        })
+        .finally(() => {
+            runNowBtn.innerHTML = originalText;
+            runNowBtn.disabled = false;
+        });
+}
+
+function addLogMessage(type, message) {
+    const timestamp = new Date().toLocaleString('id-ID');
+    const logEntry = {
+        timestamp: timestamp,
+        type: type,
+        message: message
+    };
+    
+    logMessages.unshift(logEntry);
+    
+    // Keep only last 100 messages
+    if (logMessages.length > 100) {
+        logMessages = logMessages.slice(0, 100);
+    }
+    
+    updateLogDisplay();
+}
+
+function updateLogDisplay() {
+    const logContainer = document.getElementById('activityLog');
+    
+    if (logMessages.length === 0) {
+        logContainer.innerHTML = '<div class="text-muted">Belum ada log activity...</div>';
+        return;
+    }
+    
+    const logHtml = logMessages.map(entry => {
+        const typeClass = entry.type === 'error' ? 'text-danger' : 
+                         entry.type === 'success' ? 'text-success' : 
+                         entry.type === 'warning' ? 'text-warning' : 'text-info';
+        
+        return `<div class="mb-1">
+            <span class="text-muted">[${entry.timestamp}]</span>
+            <span class="${typeClass}">${entry.message}</span>
+        </div>`;
+    }).join('');
+    
+    logContainer.innerHTML = logHtml;
+    
+    // Auto-scroll ke bawah
+    logContainer.scrollTop = logContainer.scrollHeight;
+}
+
+function clearLog() {
+    logMessages = [];
+    updateLogDisplay();
+    showToast('Log dibersihkan', 'info');
+}
+
+function downloadLog() {
+    if (logMessages.length === 0) {
+        showToast('Tidak ada log untuk didownload', 'warning');
+        return;
+    }
+    
+    const logText = logMessages.map(entry => 
+        `[${entry.timestamp}] ${entry.type.toUpperCase()}: ${entry.message}`
+    ).join('\n');
+    
+    const blob = new Blob([logText], { type: 'text/plain' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `worker_log_${new Date().toISOString().slice(0,19).replace(/:/g,'-')}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+    
+    showToast('Log berhasil didownload', 'success');
+}
+
+function showToast(message, type) {
+    const toastContainer = document.getElementById('toastContainer');
+    
+    const toast = document.createElement('div');
+    toast.className = `toast align-items-center text-white bg-${type === 'success' ? 'success' : type === 'warning' ? 'warning' : 'danger'} border-0`;
+    toast.setAttribute('role', 'alert');
+    toast.innerHTML = `
+        <div class="d-flex">
+            <div class="toast-body">${message}</div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+        </div>
+    `;
+    
+    toastContainer.appendChild(toast);
+    
+    const bsToast = new bootstrap.Toast(toast);
+    bsToast.show();
+    
+    toast.addEventListener('hidden.bs.toast', () => {
+        toast.remove();
+    });
+}
+</script>
+
+<style>
+.card {
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    border: 1px solid rgba(0, 0, 0, 0.125);
+}
+
+.btn-group .btn {
+    flex: 1;
+}
+
+#activityLog {
+    font-family: 'Courier New', monospace;
+    font-size: 0.875em;
+}
+
+.toast-container {
+    z-index: 1055;
+}
+</style>
+{% endblock %}
