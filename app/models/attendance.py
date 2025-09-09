@@ -227,11 +227,15 @@ class AttendanceModel:
                     date_val = record.get('Date', '')
                     machine = str(record.get('Machine', '')) if record.get('Machine') is not None else ''
                     
-                    # Convert Status to integer
-                    try:
-                        status = int(record.get('Status', 0))
-                    except (ValueError, TypeError):
-                        status = 0
+                    # Handle Status properly - keep original value without forced conversion
+                    status = record.get('Status', 'I')  # Default to 'I' if no status
+                    
+                    # Only convert to integer if it's already a numeric value
+                    # This preserves string status values like 'I', 'O', 'i', 'o'
+                    if isinstance(status, str) and status.isdigit():
+                        status = int(status)
+                    # Keep string status as-is (I, O, i, o, etc.)
+                    # Keep integer status as-is (0, 1, etc.)
                     
                     # Convert fpid to integer
                     try:
