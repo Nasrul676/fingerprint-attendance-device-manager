@@ -1,0 +1,636 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard Laporan Absensi{% endblock %}
+
+{% block extra_css %}
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css" rel="stylesheet">
+<link href="https://cdn.datatables.net/1.11.5/css/dataTables.bootstrap5.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.css" rel="stylesheet">
+<style>
+    .summary-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+    .summary-card h5 {
+        margin-bottom: 10px;
+        font-weight: 600;
+    }
+    .summary-card .number {
+        font-size: 2rem;
+        font-weight: bold;
+    }
+    .filter-section {
+        background: #f8f9fa;
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+    .table-section {
+        background: white;
+        border-radius: 10px;
+        padding: 20px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    .btn-filter {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+        color: white;
+    }
+    .btn-filter:hover {
+        background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
+        color: white;
+    }
+    .btn-export {
+        background: linear-gradient(135deg, #56ab2f 0%, #a8e6cf 100%);
+        border: none;
+        color: white;
+    }
+    .btn-export:hover {
+        background: linear-gradient(135deg, #4e9927 0%, #95d8b5 100%);
+        color: white;
+    }
+    .loading-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.5);
+        display: none;
+        justify-content: center;
+        align-items: center;
+        z-index: 9999;
+    }
+    .loading-spinner {
+        background: white;
+        padding: 20px;
+        border-radius: 10px;
+        text-align: center;
+    }
+    .pagination-info {
+        color: #6c757d;
+        font-size: 0.9rem;
+    }
+    .table-responsive {
+        border-radius: 10px;
+    }
+    .badge-status {
+        font-size: 0.8rem;
+        padding: 4px 8px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Page Header -->
+    <div class="row mb-4">
+        <div class="col">
+            <h2><i class="bi bi-calendar-check"></i> Dashboard Laporan Absensi</h2>
+            <p class="text-muted">Kelola dan analisis data absensi karyawan dengan filter lengkap dan export ke Excel</p>
+        </div>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="row mb-4" id="summaryCards">
+        <div class="col-md-2">
+            <div class="summary-card">
+                <h5><i class="bi bi-file-earmark-text"></i> Total Record</h5>
+                <div class="number" id="totalRecords">-</div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="summary-card">
+                <h5><i class="bi bi-people"></i> Karyawan</h5>
+                <div class="number" id="uniqueEmployees">-</div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="summary-card">
+                <h5><i class="bi bi-calendar-date"></i> Hari</h5>
+                <div class="number" id="uniqueDates">-</div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="summary-card">
+                <h5><i class="bi bi-clock"></i> Masuk</h5>
+                <div class="number" id="recordsWithMasuk">-</div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="summary-card">
+                <h5><i class="bi bi-clock-history"></i> Keluar</h5>
+                <div class="number" id="recordsWithKeluar">-</div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="summary-card">
+                <h5><i class="bi bi-check-circle"></i> Lengkap</h5>
+                <div class="number" id="completeRecords">-</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filter Section -->
+    <div class="filter-section">
+        <div class="row">
+            <div class="col-12">
+                <h5><i class="bi bi-funnel"></i> Filter Data</h5>
+            </div>
+        </div>
+        
+        <form id="filterForm">
+            <div class="row">
+                <!-- Date Range -->
+                <div class="col-md-3">
+                    <label class="form-label">Rentang Tanggal</label>
+                    <input type="text" class="form-control" id="dateRange" name="dateRange">
+                    <input type="hidden" id="start_date" name="start_date" value="{{ default_start_date }}">
+                    <input type="hidden" id="end_date" name="end_date" value="{{ default_end_date }}">
+                </div>
+
+                <!-- PIN -->
+                <div class="col-md-2">
+                    <label class="form-label">PIN</label>
+                    <input type="text" class="form-control" id="pin" name="pin" placeholder="Cari PIN...">
+                </div>
+
+                <!-- Name -->
+                <div class="col-md-2">
+                    <label class="form-label">Nama</label>
+                    <input type="text" class="form-control" id="name" name="name" placeholder="Cari nama...">
+                </div>
+
+                <!-- Jabatan -->
+                <div class="col-md-2">
+                    <label class="form-label">Jabatan</label>
+                    <select class="form-control" id="jabatan" name="jabatan">
+                        <option value="">Semua Jabatan</option>
+                        {% if filter_options.jabatan %}
+                            {% for jabatan in filter_options.jabatan %}
+                                <option value="{{ jabatan }}">{{ jabatan }}</option>
+                            {% endfor %}
+                        {% endif %}
+                    </select>
+                </div>
+
+                <!-- Lokasi -->
+                <div class="col-md-2">
+                    <label class="form-label">Lokasi</label>
+                    <select class="form-control" id="lokasi" name="lokasi">
+                        <option value="">Semua Lokasi</option>
+                        {% if filter_options.lokasi %}
+                            {% for lokasi in filter_options.lokasi %}
+                                <option value="{{ lokasi }}">{{ lokasi }}</option>
+                            {% endfor %}
+                        {% endif %}
+                    </select>
+                </div>
+
+                <!-- Department -->
+                <div class="col-md-1">
+                    <label class="form-label">Dept</label>
+                    <select class="form-control" id="deptname" name="deptname">
+                        <option value="">Semua</option>
+                        {% if filter_options.deptname %}
+                            {% for dept in filter_options.deptname %}
+                                <option value="{{ dept }}">{{ dept }}</option>
+                            {% endfor %}
+                        {% endif %}
+                    </select>
+                </div>
+            </div>
+
+            <div class="row mt-3">
+                <!-- Shift -->
+                <div class="col-md-2">
+                    <label class="form-label">Shift</label>
+                    <select class="form-control" id="shift" name="shift">
+                        <option value="">Semua Shift</option>
+                        {% if filter_options.shift %}
+                            {% for shift in filter_options.shift %}
+                                <option value="{{ shift }}">{{ shift }}</option>
+                            {% endfor %}
+                        {% endif %}
+                    </select>
+                </div>
+
+                <!-- Keterangan -->
+                <div class="col-md-2">
+                    <label class="form-label">Keterangan</label>
+                    <select class="form-control" id="keterangan" name="keterangan">
+                        <option value="">Semua</option>
+                        {% if filter_options.keterangan %}
+                            {% for ket in filter_options.keterangan %}
+                                <option value="{{ ket }}">{{ ket }}</option>
+                            {% endfor %}
+                        {% endif %}
+                    </select>
+                </div>
+
+                <!-- Records per page -->
+                <div class="col-md-2">
+                    <label class="form-label">Records/Page</label>
+                    <select class="form-control" id="perPage" name="perPage">
+                        <option value="25">25</option>
+                        <option value="50" selected>50</option>
+                        <option value="100">100</option>
+                        <option value="250">250</option>
+                        <option value="500">500</option>
+                    </select>
+                </div>
+
+                <!-- Buttons -->
+                <div class="col-md-6">
+                    <label class="form-label">&nbsp;</label>
+                    <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-filter" id="btnFilter">
+                            <i class="bi bi-search"></i> Filter Data
+                        </button>
+                        <button type="button" class="btn btn-secondary" id="btnReset">
+                            <i class="bi bi-arrow-clockwise"></i> Reset
+                        </button>
+                        <button type="button" class="btn btn-export" id="btnExport">
+                            <i class="bi bi-file-earmark-excel"></i> Export Excel
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- Data Table Section -->
+    <div class="table-section">
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <h5><i class="bi bi-table"></i> Data Absensi</h5>
+            </div>
+            <div class="col-md-6 text-end">
+                <div class="pagination-info" id="paginationInfo">
+                    Menampilkan 0 dari 0 data
+                </div>
+            </div>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-striped table-hover" id="attendanceTable">
+                <thead class="table-dark">
+                    <tr>
+                        <th width="5%">ID</th>
+                        <th width="8%">Tanggal</th>
+                        <th width="8%">FPID</th>
+                        <th width="8%">PIN</th>
+                        <th width="15%">Nama</th>
+                        <th width="10%">Jabatan</th>
+                        <th width="8%">Lokasi</th>
+                        <th width="8%">Dept</th>
+                        <th width="6%">Masuk</th>
+                        <th width="6%">Keluar</th>
+                        <th width="6%">Shift</th>
+                        <th width="12%">Keterangan</th>
+                    </tr>
+                </thead>
+                <tbody id="attendanceTableBody">
+                    <tr>
+                        <td colspan="12" class="text-center">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <div class="mt-2">Memuat data...</div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        <div class="row mt-3">
+            <div class="col-md-6">
+                <div class="pagination-info" id="paginationDetails">
+                </div>
+            </div>
+            <div class="col-md-6">
+                <nav aria-label="Page navigation">
+                    <ul class="pagination justify-content-end" id="pagination">
+                    </ul>
+                </nav>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Loading Overlay -->
+<div class="loading-overlay" id="loadingOverlay">
+    <div class="loading-spinner">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+        <div class="mt-2">Memproses data...</div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/moment@2.29.4/moment.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.min.js"></script>
+<script>
+$(document).ready(function() {
+    // Global variables
+    let currentPage = 1;
+    let currentFilters = {};
+    
+    // Initialize date range picker
+    $('#dateRange').daterangepicker({
+        startDate: moment('{{ default_start_date }}'),
+        endDate: moment('{{ default_end_date }}'),
+        locale: {
+            format: 'DD/MM/YYYY',
+            separator: ' - ',
+            applyLabel: 'Terapkan',
+            cancelLabel: 'Batal',
+            fromLabel: 'Dari',
+            toLabel: 'Ke',
+            customRangeLabel: 'Custom',
+            weekLabel: 'M',
+            daysOfWeek: ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'],
+            monthNames: ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+                        'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'],
+            firstDay: 1
+        },
+        ranges: {
+           'Hari Ini': [moment(), moment()],
+           'Kemarin': [moment().subtract(1, 'days'), moment().subtract(1, 'days')],
+           '7 Hari Terakhir': [moment().subtract(6, 'days'), moment()],
+           '30 Hari Terakhir': [moment().subtract(29, 'days'), moment()],
+           'Bulan Ini': [moment().startOf('month'), moment().endOf('month')],
+           'Bulan Lalu': [moment().subtract(1, 'month').startOf('month'), moment().subtract(1, 'month').endOf('month')]
+        }
+    });
+
+    // Update hidden date fields when date range changes
+    $('#dateRange').on('apply.daterangepicker', function(ev, picker) {
+        $('#start_date').val(picker.startDate.format('YYYY-MM-DD'));
+        $('#end_date').val(picker.endDate.format('YYYY-MM-DD'));
+    });
+
+    // Load initial data
+    loadAttendanceData();
+
+    // Filter button click
+    $('#btnFilter').click(function() {
+        currentPage = 1;
+        loadAttendanceData();
+    });
+
+    // Reset button click
+    $('#btnReset').click(function() {
+        $('#filterForm')[0].reset();
+        $('#dateRange').data('daterangepicker').setStartDate(moment('{{ default_start_date }}'));
+        $('#dateRange').data('daterangepicker').setEndDate(moment('{{ default_end_date }}'));
+        $('#start_date').val('{{ default_start_date }}');
+        $('#end_date').val('{{ default_end_date }}');
+        currentPage = 1;
+        loadAttendanceData();
+    });
+
+    // Export button click
+    $('#btnExport').click(function() {
+        exportToExcel();
+    });
+
+    // Per page change
+    $('#perPage').change(function() {
+        currentPage = 1;
+        loadAttendanceData();
+    });
+
+    // Function to load attendance data
+    function loadAttendanceData() {
+        showLoading();
+        
+        // Collect filters
+        currentFilters = {
+            start_date: $('#start_date').val(),
+            end_date: $('#end_date').val(),
+            pin: $('#pin').val().trim(),
+            name: $('#name').val().trim(),
+            jabatan: $('#jabatan').val(),
+            lokasi: $('#lokasi').val(),
+            deptname: $('#deptname').val(),
+            shift: $('#shift').val(),
+            keterangan: $('#keterangan').val(),
+            page: currentPage,
+            per_page: $('#perPage').val()
+        };
+
+        // Remove empty filters
+        Object.keys(currentFilters).forEach(key => {
+            if (currentFilters[key] === '' || currentFilters[key] === null) {
+                delete currentFilters[key];
+            }
+        });
+
+        $.ajax({
+            url: '/attendance-report/api/data',
+            method: 'GET',
+            data: currentFilters,
+            success: function(response) {
+                if (response.success) {
+                    updateSummaryCards(response.summary);
+                    updateTable(response.data);
+                    updatePagination(response.pagination);
+                } else {
+                    showError('Error: ' + (response.error || 'Unknown error'));
+                }
+            },
+            error: function(xhr, status, error) {
+                showError('Error loading data: ' + error);
+            },
+            complete: function() {
+                hideLoading();
+            }
+        });
+    }
+
+    // Function to update summary cards
+    function updateSummaryCards(summary) {
+        $('#totalRecords').text(formatNumber(summary.total_records || 0));
+        $('#uniqueEmployees').text(formatNumber(summary.unique_employees || 0));
+        $('#uniqueDates').text(formatNumber(summary.unique_dates || 0));
+        $('#recordsWithMasuk').text(formatNumber(summary.records_with_masuk || 0));
+        $('#recordsWithKeluar').text(formatNumber(summary.records_with_keluar || 0));
+        $('#completeRecords').text(formatNumber(summary.complete_records || 0));
+    }
+
+    // Function to update table
+    function updateTable(data) {
+        const tbody = $('#attendanceTableBody');
+        tbody.empty();
+
+        if (data.length === 0) {
+            tbody.append(`
+                <tr>
+                    <td colspan="12" class="text-center text-muted">
+                        <i class="bi bi-inbox" style="font-size: 3rem;"></i>
+                        <div class="mt-2">Tidak ada data yang ditemukan</div>
+                    </td>
+                </tr>
+            `);
+            return;
+        }
+
+        data.forEach(function(row) {
+            const tr = $(`
+                <tr>
+                    <td>${row.id || '-'}</td>
+                    <td>${formatDate(row.tgl) || '-'}</td>
+                    <td>${row.fpid || '-'}</td>
+                    <td>${row.pin || '-'}</td>
+                    <td>${row.name || '-'}</td>
+                    <td>${row.jabatan || '-'}</td>
+                    <td>${row.lokasi || '-'}</td>
+                    <td>${row.deptname || '-'}</td>
+                    <td>${formatTime(row.masuk) || '-'}</td>
+                    <td>${formatTime(row.keluar) || '-'}</td>
+                    <td>${row.shift || '-'}</td>
+                    <td>${row.keterangan || '-'}</td>
+                </tr>
+            `);
+            tbody.append(tr);
+        });
+    }
+
+    // Function to update pagination
+    function updatePagination(pagination) {
+        $('#paginationInfo').text(`Menampilkan ${pagination.total_count} data`);
+        
+        const start = ((pagination.page - 1) * pagination.per_page) + 1;
+        const end = Math.min(pagination.page * pagination.per_page, pagination.total_count);
+        $('#paginationDetails').text(`Menampilkan ${start}-${end} dari ${pagination.total_count} data`);
+
+        const paginationEl = $('#pagination');
+        paginationEl.empty();
+
+        if (pagination.total_pages <= 1) return;
+
+        // Previous button
+        const prevClass = pagination.has_prev ? '' : 'disabled';
+        paginationEl.append(`
+            <li class="page-item ${prevClass}">
+                <a class="page-link" href="#" data-page="${pagination.page - 1}">Previous</a>
+            </li>
+        `);
+
+        // Page numbers
+        const startPage = Math.max(1, pagination.page - 2);
+        const endPage = Math.min(pagination.total_pages, pagination.page + 2);
+
+        if (startPage > 1) {
+            paginationEl.append(`<li class="page-item"><a class="page-link" href="#" data-page="1">1</a></li>`);
+            if (startPage > 2) {
+                paginationEl.append(`<li class="page-item disabled"><span class="page-link">...</span></li>`);
+            }
+        }
+
+        for (let i = startPage; i <= endPage; i++) {
+            const activeClass = i === pagination.page ? 'active' : '';
+            paginationEl.append(`
+                <li class="page-item ${activeClass}">
+                    <a class="page-link" href="#" data-page="${i}">${i}</a>
+                </li>
+            `);
+        }
+
+        if (endPage < pagination.total_pages) {
+            if (endPage < pagination.total_pages - 1) {
+                paginationEl.append(`<li class="page-item disabled"><span class="page-link">...</span></li>`);
+            }
+            paginationEl.append(`
+                <li class="page-item">
+                    <a class="page-link" href="#" data-page="${pagination.total_pages}">${pagination.total_pages}</a>
+                </li>
+            `);
+        }
+
+        // Next button
+        const nextClass = pagination.has_next ? '' : 'disabled';
+        paginationEl.append(`
+            <li class="page-item ${nextClass}">
+                <a class="page-link" href="#" data-page="${pagination.page + 1}">Next</a>
+            </li>
+        `);
+
+        // Pagination click handlers
+        paginationEl.find('a.page-link').click(function(e) {
+            e.preventDefault();
+            const page = parseInt($(this).data('page'));
+            if (!isNaN(page) && page > 0 && page <= pagination.total_pages) {
+                currentPage = page;
+                loadAttendanceData();
+            }
+        });
+    }
+
+    // Function to export to Excel
+    function exportToExcel() {
+        showLoading();
+
+        const exportFilters = { ...currentFilters };
+        delete exportFilters.page;
+        delete exportFilters.per_page;
+
+        const params = new URLSearchParams(exportFilters).toString();
+        const url = '/attendance-report/api/export?' + params;
+
+        // Create a temporary link to download the file
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `attendance_report_${moment().format('YYYYMMDD_HHmmss')}.xlsx`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        hideLoading();
+    }
+
+    // Utility functions
+    function formatNumber(num) {
+        return new Intl.NumberFormat('id-ID').format(num);
+    }
+
+    function formatDate(dateStr) {
+        if (!dateStr) return '-';
+        return moment(dateStr).format('DD/MM/YYYY');
+    }
+
+    function formatTime(timeStr) {
+        if (!timeStr) return '-';
+        return timeStr;
+    }
+
+    function showLoading() {
+        $('#loadingOverlay').show();
+    }
+
+    function hideLoading() {
+        $('#loadingOverlay').hide();
+    }
+
+    function showError(message) {
+        alert(message); // You can replace this with a more sophisticated notification system
+    }
+
+    // Enter key handler for search inputs
+    $('#pin, #name').keypress(function(e) {
+        if (e.which === 13) {
+            $('#btnFilter').click();
+        }
+    });
+});
+</script>
+{% endblock %}

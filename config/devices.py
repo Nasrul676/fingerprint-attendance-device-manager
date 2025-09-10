@@ -12,7 +12,8 @@ FINGERPRINT_DEVICES = [
         'port': 4370,
         'password': 1234567,
         'description': 'P2-IN',
-        'location': 'P2'
+        'location': 'P2',
+        'connection_type': 'zk'  # Standard ZK connection
     },
     {
         'name': '111',
@@ -20,7 +21,8 @@ FINGERPRINT_DEVICES = [
         'port': 4370,
         'password': 0,
         'description': 'Pelet',
-        'location': 'Pelet'
+        'location': 'Pelet',
+        'connection_type': 'zk'  # Standard ZK connection
     },
     {
         'name': '110',
@@ -28,7 +30,8 @@ FINGERPRINT_DEVICES = [
         'port': 4370,
         'password': 123456,
         'description': 'Blowing',
-        'location': 'Blowing'
+        'location': 'Blowing',
+        'connection_type': 'zk'  # Standard ZK connection
     },
     {
         'name': '108',
@@ -36,7 +39,8 @@ FINGERPRINT_DEVICES = [
         'port': 4370,
         'password': 0,
         'description': 'Karung',
-        'location': 'Karung'
+        'location': 'Karung',
+        'connection_type': 'zk'  # Standard ZK connection
     },
     {
         'name': '102',
@@ -44,7 +48,8 @@ FINGERPRINT_DEVICES = [
         'port': 4370,
         'password': 0,
         'description': 'P2-OUT',
-        'location': 'P2'
+        'location': 'P2',
+        'connection_type': 'zk'  # Standard ZK connection
     },
     {
         'name': '103',
@@ -52,25 +57,65 @@ FINGERPRINT_DEVICES = [
         'port': 4370,
         'password': 12345,
         'description': 'Makan',
-        'location': 'Makan'
+        'location': 'Makan',
+        'connection_type': 'zk'  # Standard ZK connection
     },
+
     {
+     
         'name': '201',
-        'ip': '10.163.3.205',
-        'port': 4370,
+        'ip': '10.163.3.48',
+        'port': 7005,
         'password': 12345,
         'description': 'P1 Masuk',
-        'location': 'P1'
+        'location': 'P1',
+        'connection_type': 'fingerspot_api',  # Fingerspot API connection
+        'api_config': {
+            'base_url': 'https://developer.fingerspot.io/api',  # Ganti dengan URL API Fingerspot yang benar
+            'device_id': 'C262D065DF211A2E',
+            'api_key': 'H6LQCS9UWXC3IK4S',  # Ganti dengan API key yang valid
+            'timeout': 30,
+            'retry_count': 3,
+            'cloud_id': 'C262D065DF211A2E'
+        }
     },
-    {
-        'name': '203',
-        'ip': '10.163.3.228',
-        'port': 4370,
-        'password': 12345,
-        'description': 'P1 Pulang',
-        'location': 'P1'
-    }
+    # {
+    #     'name': '203',
+    #     'ip': '10.163.3.228',
+    #     'port': 4370,
+    #     'password': 12345,
+    #     'description': 'P1 Pulang',
+    #     'location': 'P1',
+    #     'connection_type': 'fingerspot_api',  # Fingerspot API connection
+    #     'api_config': {
+    #         'base_url': 'https://developer.fingerspot.io/api',  # Ganti dengan URL API Fingerspot yang benar
+    #         'device_id': '203',
+    #         'api_key': 'H6LQCS9UWXC3IK4S',  # Ganti dengan API key yang valid
+    #         'timeout': 30,
+    #         'retry_count': 3,
+    #         'cloud_id': 'C262D065DF211A2E'
+    #     }
+    # }
 ]
+
+# === Fingerspot API Configuration ===
+# Konfigurasi khusus untuk API Fingerspot Developer
+FINGERSPOT_API_CONFIG = {
+    'base_url': 'https://developer.fingerspot.io/api',  # Ganti dengan URL API yang benar
+    'version': 'v1',
+    'endpoints': {
+        'attendance': '/get_attlog',  # Updated endpoint for attendance logs
+        'devices': '/get_device',     # Endpoint for device info and connection test
+        'employees': '/employees'
+    },
+    'headers': {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+    },
+    'timeout': 30,
+    'retry_count': 3,
+    'retry_delay': 5
+}
 
 # === Device Status Mapping Rules ===
 # Rules for determining attendance status based on device and punch code
@@ -119,11 +164,22 @@ DEVICE_STATUS_RULES = {
         'punch_other': 'I'  # Default to 'I'
     },
     '201': {
-        'punch_0': 'I',     # fpid 0 → status 'I' (masuk)
-        'punch_1': 'O',     # fpid 1 → status 'O' (keluar)
-        'punch_4': 'i',     # fpid 4 → status 'i' (masuk kecil)
-        'punch_5': 'o',     # fpid 5 → status 'o' (keluar kecil)
-        'punch_other': 'I'  # Default to 'I'
+        # Device 201 khusus untuk mesin pulang dengan format P1 MASUK-X
+        # dimana X = status_scan + 1
+        # status_scan 0 → P1 MASUK-1, status_scan 1 → P1 MASUK-2, dst.
+        'device_type': 'fingerspot_pulang',
+        'format_pattern': 'P1 MASUK-{increment}',  # {increment} = status_scan + 1
+        'punch_0': 'P1 MASUK-1',     # status_scan 0 → P1 MASUK-1
+        'punch_1': 'P1 MASUK-2',     # status_scan 1 → P1 MASUK-2
+        'punch_2': 'P1 MASUK-3',     # status_scan 2 → P1 MASUK-3
+        'punch_3': 'P1 MASUK-4',     # status_scan 3 → P1 MASUK-4
+        'punch_4': 'P1 MASUK-5',     # status_scan 4 → P1 MASUK-5
+        'punch_5': 'P1 MASUK-6',     # status_scan 5 → P1 MASUK-6
+        'punch_6': 'P1 MASUK-7',     # status_scan 6 → P1 MASUK-7
+        'punch_7': 'P1 MASUK-8',     # status_scan 7 → P1 MASUK-8
+        'punch_8': 'P1 MASUK-9',     # status_scan 8 → P1 MASUK-9
+        'punch_9': 'P1 MASUK-10',    # status_scan 9 → P1 MASUK-10
+        'punch_other': 'P1 MASUK-1'  # Default ke P1 MASUK-1 jika status_scan tidak dikenal
     },
     '203': {
         'punch_0': 'I',     # fpid 0 → status 'I' (masuk)
@@ -177,6 +233,30 @@ def get_all_device_ips():
     """Get list of all device IP addresses"""
     return [device['ip'] for device in FINGERPRINT_DEVICES]
 
+def get_devices_by_connection_type(connection_type):
+    """Get devices filtered by connection type"""
+    return [device for device in FINGERPRINT_DEVICES if device.get('connection_type') == connection_type]
+
+def get_zk_devices():
+    """Get devices that use standard ZK connection"""
+    return get_devices_by_connection_type('zk')
+
+def get_fingerspot_api_devices():
+    """Get devices that use Fingerspot API connection"""
+    return get_devices_by_connection_type('fingerspot_api')
+
+def is_fingerspot_device(device_name):
+    """Check if device uses Fingerspot API"""
+    device = get_device_by_name(device_name)
+    return device and device.get('connection_type') == 'fingerspot_api'
+
+def get_fingerspot_config(device_name):
+    """Get Fingerspot API configuration for a specific device"""
+    device = get_device_by_name(device_name)
+    if device and device.get('connection_type') == 'fingerspot_api':
+        return device.get('api_config', {})
+    return None
+
 def determine_status(device_name, punch_code):
     """
     Determine attendance status based on device name and punch code
@@ -206,6 +286,18 @@ def determine_status(device_name, punch_code):
                     return rules['punch_3']
                 else:
                     return rules['punch_other']
+            
+            # Handle special case for device 201 (Fingerspot API with P1 MASUK-X format)
+            elif device_name == '201':
+                # Device 201 menggunakan format P1 MASUK-X dimana X = status_scan + 1
+                if isinstance(punch_code, (int, str)) and str(punch_code).isdigit():
+                    status_scan = int(punch_code)
+                    increment = status_scan + 1
+                    return f'P1 MASUK-{increment}'
+                else:
+                    # Fallback ke punch key lookup jika tidak numerik
+                    punch_key = f'punch_{punch_code}'
+                    return rules.get(punch_key, rules.get('punch_other', 'P1 MASUK-1'))
             
             # Handle other devices with string status
             else:
@@ -267,14 +359,23 @@ def get_status_display(device_name, punch_code):
         
         # Handle string status devices
         elif isinstance(status, str):
-            if status.upper() == 'I':
+            # Handle special case for device 201 (P1 MASUK-X format)
+            if device_name == '201' and status.startswith('P1 MASUK-'):
+                # Extract increment number for display
+                try:
+                    increment = status.split('-')[1]
+                    return f'P1 Masuk Ke-{increment}'
+                except (IndexError, ValueError):
+                    return 'P1 Masuk'
+            # Handle standard status codes
+            elif status.upper() == 'I':
                 return 'Masuk'
             elif status.upper() == 'O':
                 return 'Keluar'
             elif status.upper() == 'B':
                 return 'Istirahat'
             else:
-                return 'Unknown'
+                return status  # Return the status as-is for custom formats
         
         # Fallback for unknown status types
         else:
@@ -295,7 +396,7 @@ def validate_device_config():
     
     for device in FINGERPRINT_DEVICES:
         # Check required fields
-        required_fields = ['name', 'ip', 'port', 'password']
+        required_fields = ['name', 'ip', 'port', 'password', 'connection_type']
         for field in required_fields:
             if field not in device:
                 errors.append(f"Missing required field '{field}' in device config")
@@ -318,6 +419,19 @@ def validate_device_config():
         # Validate port range
         if not (1 <= device['port'] <= 65535):
             errors.append(f"Invalid port for device {device['name']}: {device['port']}")
+        
+        # Validate connection type
+        valid_connection_types = ['zk', 'fingerspot_api']
+        if device.get('connection_type') not in valid_connection_types:
+            errors.append(f"Invalid connection_type for device {device['name']}: {device.get('connection_type')}")
+        
+        # Validate Fingerspot API config
+        if device.get('connection_type') == 'fingerspot_api':
+            api_config = device.get('api_config', {})
+            required_api_fields = ['base_url', 'device_id', 'api_key']
+            for field in required_api_fields:
+                if field not in api_config or not api_config[field]:
+                    errors.append(f"Missing or empty '{field}' in api_config for device {device['name']}")
     
     return errors
 
@@ -327,3 +441,22 @@ if _validation_errors:
     print("Device configuration validation errors:")
     for error in _validation_errors:
         print(f"  - {error}")
+
+# === Compatibility Mapping ===
+# For backward compatibility with existing code that uses DEVICE_CONFIG
+DEVICE_CONFIG = {}
+for device in FINGERPRINT_DEVICES:
+    device_name = device['name']
+    device_rules = DEVICE_STATUS_RULES.get(device_name, DEVICE_STATUS_RULES.get('default', {}))
+    
+    DEVICE_CONFIG[device_name] = {
+        'name': device['name'],
+        'ip': device['ip'],
+        'port': device['port'],
+        'password': device['password'],
+        'description': device.get('description', ''),
+        'location': device.get('location', ''),
+        'connection_type': device.get('connection_type', 'zk'),
+        'api_config': device.get('api_config', {}),
+        'status_rules': device_rules
+    }

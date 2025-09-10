@@ -243,46 +243,81 @@ class SyncController:
                     'message': f'Device {device_name} not found'
                 }), 404
             
-            # Check if zk is available
-            try:
-                from zk import ZK
-            except ImportError:
-                return jsonify({
-                    'success': False,
-                    'message': 'zk module not available. Device connection not possible.'
-                })
+            # Check connection type and route accordingly
+            connection_type = device_config.get('connection_type', 'zk')
             
-            # Test connection
-            zk = ZK(device_config['ip'], port=device_config['port'], 
-                   timeout=10, password=device_config['password'])
-            
-            try:
-                conn = zk.connect()
-                if conn:
-                    # Get device info
-                    device_info = {
-                        'firmware': conn.get_firmware_version(),
-                        'users_count': len(conn.get_users() or []),
-                        'attendance_count': len(conn.get_attendance() or [])
-                    }
-                    conn.disconnect()
+            if connection_type == 'fingerspot_api':
+                # Test Fingerspot API connection
+                if not self.sync_service.fingerspot_service:
+                    return jsonify({
+                        'success': False,
+                        'message': 'Fingerspot service not available'
+                    })
+                
+                # Use fingerspot service to test connection
+                success, message = self.sync_service.fingerspot_service.test_connection(device_config)
+                
+                if success:
+                    # Get additional device info
+                    device_info = self.sync_service.fingerspot_service.get_device_info(device_config)
                     
                     return jsonify({
                         'success': True,
-                        'message': 'Connection successful',
+                        'message': message,
+                        'connection_type': 'fingerspot_api',
                         'device_info': device_info
                     })
                 else:
                     return jsonify({
                         'success': False,
-                        'message': 'Failed to connect to device'
+                        'message': message,
+                        'connection_type': 'fingerspot_api'
                     })
-                    
-            except Exception as e:
-                return jsonify({
-                    'success': False,
-                    'message': f'Connection failed: {str(e)}'
-                })
+            
+            else:
+                # Test ZK connection (existing logic)
+                try:
+                    from zk import ZK
+                except ImportError:
+                    return jsonify({
+                        'success': False,
+                        'message': 'zk module not available. Device connection not possible.'
+                    })
+                
+                # Test ZK connection
+                zk = ZK(device_config['ip'], port=device_config['port'], 
+                       timeout=10, password=device_config['password'])
+                
+                try:
+                    conn = zk.connect()
+                    if conn:
+                        # Get device info
+                        device_info = {
+                            'firmware': conn.get_firmware_version(),
+                            'users_count': len(conn.get_users() or []),
+                            'attendance_count': len(conn.get_attendance() or [])
+                        }
+                        conn.disconnect()
+                        
+                        return jsonify({
+                            'success': True,
+                            'message': 'Connection successful',
+                            'connection_type': 'zk',
+                            'device_info': device_info
+                        })
+                    else:
+                        return jsonify({
+                            'success': False,
+                            'message': 'Failed to connect to device',
+                            'connection_type': 'zk'
+                        })
+                        
+                except Exception as e:
+                    return jsonify({
+                        'success': False,
+                        'message': f'Connection failed: {str(e)}',
+                        'connection_type': 'zk'
+                    })
             
         except Exception as e:
             return jsonify({

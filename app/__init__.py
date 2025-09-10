@@ -75,11 +75,13 @@ def create_app(config_name=None):
     # Register blueprints
     from app.routes import main_bp, api_bp, sync_bp, fplog_bp
     from app.controllers.worker_controller import worker_bp
+    from app.controllers.attendance_report_controller import attendance_report_bp
     
     app.register_blueprint(main_bp)
     app.register_blueprint(api_bp, url_prefix='/api')
     app.register_blueprint(sync_bp, url_prefix='/sync')
     app.register_blueprint(fplog_bp, url_prefix='/fplog')
     app.register_blueprint(worker_bp, url_prefix='/api')
+    app.register_blueprint(attendance_report_bp)
     
     return app
