@@ -1,435 +1,241 @@
 {% extends "base.html" %}
 
-{% block title %}Attendance Worker Dashboard{% endblock %}
+{% block title %}Update Data HRIS{% endblock %}
 
 {% block content %}
-<div class="container-fluid">
-    <!-- Page Header -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <div>
-            <h1 class="h3 mb-0">Attendance Worker Dashboard</h1>
-            <p class="text-muted mb-0">Monitor dan kelola worker untuk pemrosesan antrian absensi</p>
-        </div>
-        <div>
-            <button class="btn btn-outline-secondary" onclick="refreshStatus()">
-                <i class="fas fa-refresh"></i> Refresh
-            </button>
-        </div>
-    </div>
+<div class="container mt-4">
+    <h1 class="mb-4">Update Data HRIS</h1>
 
-    <!-- Worker Status Card -->
-    <div class="row mb-4">
-        <div class="col-md-6">
-            <div class="card">
-                <div class="card-header">
-                    <h5 class="mb-0">
-                        <i class="fas fa-cog"></i> Status Worker
-                    </h5>
+    <!-- Flash Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                 </div>
-                <div class="card-body">
-                    <div class="row">
-                        <div class="col-6">
-                            <strong>Status:</strong>
-                        </div>
-                        <div class="col-6">
-                            <span id="workerStatus" class="badge">
-                                {% if status.is_running %}
-                                    <span class="badge bg-success">Berjalan</span>
-                                {% else %}
-                                    <span class="badge bg-danger">Berhenti</span>
-                                {% endif %}
-                            </span>
-                        </div>
-                    </div>
-                    <div class="row mt-2">
-                        <div class="col-6">
-                            <strong>Thread:</strong>
-                        </div>
-                        <div class="col-6">
-                            <span id="threadStatus">
-                                {% if status.thread_alive %}
-                                    <span class="badge bg-success">Aktif</span>
-                                {% else %}
-                                    <span class="badge bg-secondary">Tidak Aktif</span>
-                                {% endif %}
-                            </span>
-                        </div>
-                    </div>
-                    <div class="row mt-2">
-                        <div class="col-6">
-                            <strong>Jadwal:</strong>
-                        </div>
-                        <div class="col-6">
-                            <span id="scheduleInfo">{{ status.schedule_info or 'Belum dijadwalkan' }}</span>
-                        </div>
-                    </div>
-                    <div class="row mt-2">
-                        <div class="col-6">
-                            <strong>Next Run:</strong>
-                        </div>
-                        <div class="col-6">
-                            <span id="nextRun">
-                                {% if status.next_run %}
-                                    {{ status.next_run.strftime('%Y-%m-%d %H:%M:%S') }}
-                                {% else %}
-                                    Belum ada jadwal
-                                {% endif %}
-                            </span>
-                        </div>
-                    </div>
-                </div>
-                <div class="card-footer">
-                    <div class="btn-group w-100" role="group">
-                        <button id="startBtn" class="btn btn-success" onclick="startWorker()" 
-                                {% if status.is_running %}disabled{% endif %}>
-                            <i class="fas fa-play"></i> Start
-                        </button>
-                        <button id="stopBtn" class="btn btn-danger" onclick="stopWorker()"
-                                {% if not status.is_running %}disabled{% endif %}>
-                            <i class="fas fa-stop"></i> Stop
-                        </button>
-                        <button id="runNowBtn" class="btn btn-warning" onclick="runNow()">
-                            <i class="fas fa-bolt"></i> Run Now
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-        
-        <div class="col-md-6">
-            <div class="card">
-                <div class="card-header">
-                    <h5 class="mb-0">
-                        <i class="fas fa-list"></i> Statistik Antrian
-                    </h5>
-                </div>
-                <div class="card-body">
-                    {% if status.queue_stats %}
-                        <div class="row mb-2">
-                            <div class="col-6">
-                                <strong>Total Records:</strong>
-                            </div>
-                            <div class="col-6">
-                                <span class="badge bg-primary">{{ status.queue_stats.total }}</span>
-                            </div>
-                        </div>
-                        
-                        {% for status_name, count in status.queue_stats.by_status.items() %}
-                        <div class="row mb-1">
-                            <div class="col-6">
-                                Status "{{ status_name }}":
-                            </div>
-                            <div class="col-6">
-                                <span class="badge bg-{{ 'warning' if status_name == 'diproses' else 'info' if status_name == 'baru' else 'success' }}">
-                                    {{ count }}
-                                </span>
-                            </div>
-                        </div>
-                        {% endfor %}
-                        
-                        {% if status.queue_stats.baru_dates %}
-                        <hr>
-                        <strong>Tanggal yang akan diproses:</strong>
-                        <div class="mt-2">
-                            {% for date in status.queue_stats.baru_dates %}
-                                <span class="badge bg-info me-1">{{ date }}</span>
-                            {% endfor %}
-                        </div>
-                        {% endif %}
-                    {% else %}
-                        <p class="text-muted">Tidak dapat memuat statistik antrian</p>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
-    </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
 
-    <!-- Log Recent Activity -->
-    <div class="row">
-        <div class="col-12">
-            <div class="card">
-                <div class="card-header">
-                    <h5 class="mb-0">
-                        <i class="fas fa-file-alt"></i> Activity Log
-                    </h5>
+    <!-- Manual Procedure Execution -->
+    <div class="card">
+        <div class="card-header">
+            Update Data HRIS
+        </div>
+        <div class="card-body">
+            <p class="card-text">Pilih rentang tanggal yang ingin diperbarui datanya di HRIS.</p>
+            <p class="card-text">Pastikan format tanggal sesuai dan data sudah benar sebelum menjalankan proses.</p>
+            
+            <!-- Job Queue Form (Default) -->
+            <div id="jobQueueForm">
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle"></i> 
+                    <strong>Rekomendasi:</strong> Menggunakan Job Queue akan memproses data di background tanpa loading.
                 </div>
-                <div class="card-body">
-                    <div id="activityLog" class="bg-dark text-light p-3 rounded" style="height: 300px; overflow-y: auto;">
-                        <div class="text-muted">Log akan muncul di sini...</div>
+                <form id="workerJobForm">
+                    <div class="row g-3 align-items-end">
+                        <div class="col-md">
+                            <label for="job_start_date" class="form-label">Tanggal Mulai</label>
+                            <input type="date" class="form-control" id="job_start_date" name="start_date" required>
+                        </div>
+                        <div class="col-md">
+                            <label for="job_end_date" class="form-label">Tanggal Akhir</label>
+                            <input type="date" class="form-control" id="job_end_date" name="end_date" required>
+                        </div>
+                        <div class="col-md-auto">
+                            <button type="submit" class="btn btn-success" id="jobQueueBtn">
+                                <i class="fas fa-clock"></i> Proses via Job Queue
+                            </button>
+                        </div>
                     </div>
+                </form>
+            </div>
+
+            <!-- Traditional Form (Hidden by default) -->
+            <div id="traditionalForm" style="display: none;">
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle"></i> 
+                    <strong>Perhatian:</strong> Proses langsung akan menyebabkan halaman loading. Gunakan hanya jika Job Queue bermasalah.
                 </div>
-                <div class="card-footer">
-                    <button class="btn btn-sm btn-outline-secondary" onclick="clearLog()">
-                        <i class="fas fa-trash"></i> Clear Log
-                    </button>
-                    <button class="btn btn-sm btn-outline-secondary" onclick="downloadLog()">
-                        <i class="fas fa-download"></i> Download Log
-                    </button>
-                </div>
+                <form action="{{ url_for('worker.run_procedures_manual') }}" method="POST">
+                    <div class="row g-3 align-items-end">
+                        <div class="col-md">
+                            <label for="start_date" class="form-label">Tanggal Mulai</label>
+                            <input type="date" class="form-control" id="start_date" name="start_date" required>
+                        </div>
+                        <div class="col-md">
+                            <label for="end_date" class="form-label">Tanggal Akhir</label>
+                            <input type="date" class="form-control" id="end_date" name="end_date" required>
+                        </div>
+                        <div class="col-md-auto">
+                            <button type="submit" class="btn btn-warning">
+                                <i class="fas fa-exclamation-triangle"></i> Proses Langsung
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Toggle Button -->
+            <div class="mt-3">
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="toggleProcessingMethod()">
+                    <i class="fas fa-exchange-alt"></i> <span id="toggleText">Gunakan Proses Langsung</span>
+                </button>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Toast Container -->
-<div id="toastContainer" class="toast-container position-fixed bottom-0 end-0 p-3"></div>
+<!-- Success Modal -->
+<div class="modal fade" id="successModal" tabindex="-1" aria-labelledby="successModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title" id="successModalLabel">
+                    <i class="fas fa-check-circle"></i> Jobs Created Successfully
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="successModalContent">
+                    <!-- Success content will be filled by JavaScript -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
 
 <script>
-let logMessages = [];
+let isJobQueueMode = true;
 
-document.addEventListener('DOMContentLoaded', function() {
-    // Auto-refresh setiap 30 detik
-    setInterval(refreshStatus, 30000);
+function toggleProcessingMethod() {
+    const jobQueueForm = document.getElementById('jobQueueForm');
+    const traditionalForm = document.getElementById('traditionalForm');
+    const toggleText = document.getElementById('toggleText');
     
-    // Load initial log
-    addLogMessage('info', 'Dashboard worker dimuat');
+    if (isJobQueueMode) {
+        // Switch to traditional mode
+        jobQueueForm.style.display = 'none';
+        traditionalForm.style.display = 'block';
+        toggleText.textContent = 'Gunakan Job Queue';
+        isJobQueueMode = false;
+    } else {
+        // Switch to job queue mode
+        jobQueueForm.style.display = 'block';
+        traditionalForm.style.display = 'none';
+        toggleText.textContent = 'Gunakan Proses Langsung';
+        isJobQueueMode = true;
+    }
+}
+
+// Handle job queue form submission
+document.getElementById('workerJobForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const submitBtn = document.getElementById('jobQueueBtn');
+    const originalText = submitBtn.innerHTML;
+    
+    // Show loading state
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating Jobs...';
+    
+    try {
+        const formData = new FormData(this);
+        const data = {
+            start_date: formData.get('start_date'),
+            end_date: formData.get('end_date')
+        };
+        
+        const response = await fetch('/worker/run-manual-ajax', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            // Show success modal
+            showSuccessModal(result);
+            
+            // Reset form
+            this.reset();
+        } else {
+            // Show error alert
+            showAlert('danger', 'Error: ' + result.message);
+        }
+        
+    } catch (error) {
+        console.error('Error:', error);
+        showAlert('danger', 'An unexpected error occurred while creating jobs.');
+    } finally {
+        // Restore button state
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalText;
+    }
 });
 
-function refreshStatus() {
-    fetch('/api/worker/status')
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                updateStatusDisplay(data.data);
-            } else {
-                showToast('Error refresh status: ' + data.message, 'error');
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            showToast('Error refresh status', 'error');
+function showSuccessModal(result) {
+    const modalContent = document.getElementById('successModalContent');
+    
+    let jobsList = '';
+    if (result.jobs_created && result.jobs_created.length > 0) {
+        jobsList = '<ul class="list-group list-group-flush mt-2">';
+        result.jobs_created.forEach(job => {
+            jobsList += `<li class="list-group-item d-flex justify-content-between align-items-center">
+                <span>Job for ${job.date}</span>
+                <small class="text-muted">${job.job_id}</small>
+            </li>`;
         });
-}
-
-function updateStatusDisplay(status) {
-    // Update worker status
-    const workerStatusEl = document.getElementById('workerStatus');
-    if (status.is_running) {
-        workerStatusEl.innerHTML = '<span class="badge bg-success">Berjalan</span>';
-        document.getElementById('startBtn').disabled = true;
-        document.getElementById('stopBtn').disabled = false;
-    } else {
-        workerStatusEl.innerHTML = '<span class="badge bg-danger">Berhenti</span>';
-        document.getElementById('startBtn').disabled = false;
-        document.getElementById('stopBtn').disabled = true;
+        jobsList += '</ul>';
     }
     
-    // Update thread status
-    const threadStatusEl = document.getElementById('threadStatus');
-    if (status.thread_alive) {
-        threadStatusEl.innerHTML = '<span class="badge bg-success">Aktif</span>';
-    } else {
-        threadStatusEl.innerHTML = '<span class="badge bg-secondary">Tidak Aktif</span>';
-    }
-    
-    // Update next run
-    const nextRunEl = document.getElementById('nextRun');
-    if (status.next_run) {
-        nextRunEl.textContent = new Date(status.next_run).toLocaleString('id-ID');
-    } else {
-        nextRunEl.textContent = 'Belum ada jadwal';
-    }
-}
-
-function startWorker() {
-    const startBtn = document.getElementById('startBtn');
-    const originalText = startBtn.innerHTML;
-    startBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Starting...';
-    startBtn.disabled = true;
-    
-    fetch('/api/worker/start', { method: 'POST' })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                showToast(data.message, 'success');
-                addLogMessage('success', 'Worker berhasil dimulai');
-                setTimeout(refreshStatus, 1000);
-            } else {
-                showToast(data.message, 'error');
-                addLogMessage('error', 'Gagal memulai worker: ' + data.message);
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            showToast('Error starting worker', 'error');
-            addLogMessage('error', 'Error starting worker: ' + error.message);
-        })
-        .finally(() => {
-            startBtn.innerHTML = originalText;
-            setTimeout(refreshStatus, 1000);
-        });
-}
-
-function stopWorker() {
-    const stopBtn = document.getElementById('stopBtn');
-    const originalText = stopBtn.innerHTML;
-    stopBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Stopping...';
-    stopBtn.disabled = true;
-    
-    fetch('/api/worker/stop', { method: 'POST' })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                showToast(data.message, 'success');
-                addLogMessage('success', 'Worker berhasil dihentikan');
-                setTimeout(refreshStatus, 1000);
-            } else {
-                showToast(data.message, 'error');
-                addLogMessage('error', 'Gagal menghentikan worker: ' + data.message);
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            showToast('Error stopping worker', 'error');
-            addLogMessage('error', 'Error stopping worker: ' + error.message);
-        })
-        .finally(() => {
-            stopBtn.innerHTML = originalText;
-            setTimeout(refreshStatus, 1000);
-        });
-}
-
-function runNow() {
-    const runNowBtn = document.getElementById('runNowBtn');
-    const originalText = runNowBtn.innerHTML;
-    runNowBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Running...';
-    runNowBtn.disabled = true;
-    
-    fetch('/api/worker/run-now', { method: 'POST' })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                showToast(data.message, 'success');
-                addLogMessage('info', 'Pemrosesan manual dimulai');
-            } else {
-                showToast(data.message, 'error');
-                addLogMessage('error', 'Gagal menjalankan pemrosesan manual: ' + data.message);
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            showToast('Error running worker', 'error');
-            addLogMessage('error', 'Error running worker: ' + error.message);
-        })
-        .finally(() => {
-            runNowBtn.innerHTML = originalText;
-            runNowBtn.disabled = false;
-        });
-}
-
-function addLogMessage(type, message) {
-    const timestamp = new Date().toLocaleString('id-ID');
-    const logEntry = {
-        timestamp: timestamp,
-        type: type,
-        message: message
-    };
-    
-    logMessages.unshift(logEntry);
-    
-    // Keep only last 100 messages
-    if (logMessages.length > 100) {
-        logMessages = logMessages.slice(0, 100);
-    }
-    
-    updateLogDisplay();
-}
-
-function updateLogDisplay() {
-    const logContainer = document.getElementById('activityLog');
-    
-    if (logMessages.length === 0) {
-        logContainer.innerHTML = '<div class="text-muted">Belum ada log activity...</div>';
-        return;
-    }
-    
-    const logHtml = logMessages.map(entry => {
-        const typeClass = entry.type === 'error' ? 'text-danger' : 
-                         entry.type === 'success' ? 'text-success' : 
-                         entry.type === 'warning' ? 'text-warning' : 'text-info';
-        
-        return `<div class="mb-1">
-            <span class="text-muted">[${entry.timestamp}]</span>
-            <span class="${typeClass}">${entry.message}</span>
-        </div>`;
-    }).join('');
-    
-    logContainer.innerHTML = logHtml;
-    
-    // Auto-scroll ke bawah
-    logContainer.scrollTop = logContainer.scrollHeight;
-}
-
-function clearLog() {
-    logMessages = [];
-    updateLogDisplay();
-    showToast('Log dibersihkan', 'info');
-}
-
-function downloadLog() {
-    if (logMessages.length === 0) {
-        showToast('Tidak ada log untuk didownload', 'warning');
-        return;
-    }
-    
-    const logText = logMessages.map(entry => 
-        `[${entry.timestamp}] ${entry.type.toUpperCase()}: ${entry.message}`
-    ).join('\n');
-    
-    const blob = new Blob([logText], { type: 'text/plain' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `worker_log_${new Date().toISOString().slice(0,19).replace(/:/g,'-')}.txt`;
-    document.body.appendChild(a);
-    a.click();
-    window.URL.revokeObjectURL(url);
-    document.body.removeChild(a);
-    
-    showToast('Log berhasil didownload', 'success');
-}
-
-function showToast(message, type) {
-    const toastContainer = document.getElementById('toastContainer');
-    
-    const toast = document.createElement('div');
-    toast.className = `toast align-items-center text-white bg-${type === 'success' ? 'success' : type === 'warning' ? 'warning' : 'danger'} border-0`;
-    toast.setAttribute('role', 'alert');
-    toast.innerHTML = `
-        <div class="d-flex">
-            <div class="toast-body">${message}</div>
-            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+    modalContent.innerHTML = `
+        <div class="alert alert-success mb-0">
+            <h6><i class="fas fa-check-circle"></i> ${result.message}</h6>
+            <p class="mb-2">Date range: <strong>${result.date_range}</strong></p>
+            <p class="mb-0">Total jobs created: <strong>${result.jobs_created.length}</strong></p>
+        </div>
+        ${jobsList}
+        <div class="mt-3">
+            <small class="text-muted">
+                <i class="fas fa-info-circle"></i> 
+                Jobs will be processed in background.
+            </small>
         </div>
     `;
     
-    toastContainer.appendChild(toast);
-    
-    const bsToast = new bootstrap.Toast(toast);
-    bsToast.show();
-    
-    toast.addEventListener('hidden.bs.toast', () => {
-        toast.remove();
-    });
+    const modal = new bootstrap.Modal(document.getElementById('successModal'));
+    modal.show();
 }
+
+function showAlert(type, message) {
+    const alertHtml = `
+        <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    `;
+    
+    // Insert alert at the top of the container
+    const container = document.querySelector('.container');
+    const firstChild = container.firstElementChild;
+    firstChild.insertAdjacentHTML('afterend', alertHtml);
+}
+
+// Set default dates
+document.addEventListener('DOMContentLoaded', function() {
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('job_start_date').value = today;
+    document.getElementById('job_end_date').value = today;
+    document.getElementById('start_date').value = today;
+    document.getElementById('end_date').value = today;
+});
 </script>
-
-<style>
-.card {
-    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
-    border: 1px solid rgba(0, 0, 0, 0.125);
-}
-
-.btn-group .btn {
-    flex: 1;
-}
-
-#activityLog {
-    font-family: 'Courier New', monospace;
-    font-size: 0.875em;
-}
-
-.toast-container {
-    z-index: 1055;
-}
-</style>
 {% endblock %}

@@ -73,7 +73,7 @@ def create_app(config_name=None):
         })
     
     # Register blueprints
-    from app.routes import main_bp, api_bp, sync_bp, fplog_bp
+    from app.routes import main_bp, api_bp, sync_bp, fplog_bp, failed_logs_bp, job_bp
     from app.controllers.worker_controller import worker_bp
     from app.controllers.attendance_report_controller import attendance_report_bp
     
@@ -81,7 +81,17 @@ def create_app(config_name=None):
     app.register_blueprint(api_bp, url_prefix='/api')
     app.register_blueprint(sync_bp, url_prefix='/sync')
     app.register_blueprint(fplog_bp, url_prefix='/fplog')
-    app.register_blueprint(worker_bp, url_prefix='/api')
+    app.register_blueprint(failed_logs_bp, url_prefix='/failed-logs')
+    app.register_blueprint(worker_bp)  # Worker blueprint sudah ada prefix /worker di controller
     app.register_blueprint(attendance_report_bp)
+    app.register_blueprint(job_bp)  # Remove url_prefix since it's already defined in routes.py
+    
+    # Initialize job service worker
+    from app.services.job_service import job_service
+    try:
+        job_service.start_worker()
+        app.logger.info("Job service worker started successfully")
+    except Exception as e:
+        app.logger.error(f"Failed to start job service worker: {e}")
     
     return app

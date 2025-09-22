@@ -41,11 +41,13 @@ class FPLogController:
                 'start_date': data.get('start_date', '').strip(),
                 'end_date': data.get('end_date', '').strip(),
                 'status': data.get('status', '').strip(),
-                'limit': data.get('limit', 1000)
+                'limit': data.get('limit', 5000)
             }
             
             # Remove empty filters
             filters = {k: v for k, v in filters.items() if v != ''}
+            print(f"🔍 FPLog Export - Processed filters: {filters}")
+            print(f"🔍 FPLog Export - Processed filters: {filters}")
             
             success, message, fplog_data = self.fplog_service.search_fplog_data(filters)
             
@@ -72,14 +74,16 @@ class FPLogController:
         """Export FPLog data to Excel"""
         try:
             data = request.get_json() or {}
+            print(f"🔍 FPLog Export - Received filters: {data}")
+            print(f"🔍 FPLog Export - Received filters: {data}")
             
             filters = {
                 'pin': data.get('pin', '').strip(),
                 'machine': data.get('machine', '').strip(),
                 'start_date': data.get('start_date', '').strip(),
                 'end_date': data.get('end_date', '').strip(),
-                'status': data.get('status', '').strip(),
-                'limit': data.get('limit', 10000)  # Higher limit for export
+                'status': data.get('status', '').strip()
+                # No limit for export - get all filtered data
             }
             
             # Remove empty filters

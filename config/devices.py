@@ -60,7 +60,6 @@ FINGERPRINT_DEVICES = [
         'location': 'Makan',
         'connection_type': 'zk'  # Standard ZK connection
     },
-
     {
      
         'name': '201',
@@ -79,23 +78,39 @@ FINGERPRINT_DEVICES = [
             'cloud_id': 'C262D065DF211A2E'
         }
     },
-    # {
-    #     'name': '203',
-    #     'ip': '10.163.3.228',
-    #     'port': 4370,
-    #     'password': 12345,
-    #     'description': 'P1 Pulang',
-    #     'location': 'P1',
-    #     'connection_type': 'fingerspot_api',  # Fingerspot API connection
-    #     'api_config': {
-    #         'base_url': 'https://developer.fingerspot.io/api',  # Ganti dengan URL API Fingerspot yang benar
-    #         'device_id': '203',
-    #         'api_key': 'H6LQCS9UWXC3IK4S',  # Ganti dengan API key yang valid
-    #         'timeout': 30,
-    #         'retry_count': 3,
-    #         'cloud_id': 'C262D065DF211A2E'
-    #     }
-    # }
+    {
+        'name': 'Absensi Online',
+        'ip': 'online',  # IP tidak relevan untuk API-only
+        'port': 0,       # Port tidak relevan
+        'password': 0,   # Password tidak relevan
+        'description': 'Absensi Online via API',
+        'location': 'Online',
+        'connection_type': 'online_attendance',  # Tipe koneksi baru
+        'api_config': {
+            'base_url': 'https://pkpapi.pradha.co.id/api',
+            'endpoint': '/mobileattgetall', # Endpoint yang benar
+            'api_key': '', # Kosongkan jika tidak diperlukan
+            'timeout': 30,
+            'retry_count': 3
+        }
+    },
+    {
+        'name': '203',
+        'ip': '10.163.3.228',
+        'port': 4370,
+        'password': 12345,
+        'description': 'P1 Pulang',
+        'location': 'P1',
+        'connection_type': 'fingerspot_api',  # Fingerspot API connection
+        'api_config': {
+            'base_url': 'https://developer.fingerspot.io/api',  # Ganti dengan URL API Fingerspot yang benar
+            'device_id': '203',
+            'api_key': 'H6LQCS9UWXC3IK4S',  # Ganti dengan API key yang valid
+            'timeout': 30,
+            'retry_count': 3,
+            'cloud_id': 'C262D065DF0F1D2E'
+        }
+    }
 ]
 
 # === Fingerspot API Configuration ===
@@ -116,6 +131,23 @@ FINGERSPOT_API_CONFIG = {
     'retry_count': 3,
     'retry_delay': 5
 }
+
+# === Online Attendance API Configuration ===
+ONLINE_ATTENDANCE_API_CONFIG = {
+    'base_url': 'https://pkpapi.pradha.co.id/api',
+    'version': 'v1',
+    'endpoints': {
+        'attendance': '/mobileatt', # Endpoint yang benar
+    },
+    'headers': {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+    },
+    'timeout': 30,
+    'retry_count': 3,
+    'retry_delay': 5
+}
+
 
 # === Device Status Mapping Rules ===
 # Rules for determining attendance status based on device and punch code
@@ -167,7 +199,7 @@ DEVICE_STATUS_RULES = {
         # Device 201 khusus untuk mesin pulang dengan format P1 MASUK-X
         # dimana X = status_scan + 1
         # status_scan 0 → P1 MASUK-1, status_scan 1 → P1 MASUK-2, dst.
-        'device_type': 'fingerspot_pulang',
+        'device_type': 'fingerspot_masuk',
         'format_pattern': 'P1 MASUK-{increment}',  # {increment} = status_scan + 1
         'punch_0': 'P1 MASUK-1',     # status_scan 0 → P1 MASUK-1
         'punch_1': 'P1 MASUK-2',     # status_scan 1 → P1 MASUK-2
@@ -182,11 +214,25 @@ DEVICE_STATUS_RULES = {
         'punch_other': 'P1 MASUK-1'  # Default ke P1 MASUK-1 jika status_scan tidak dikenal
     },
     '203': {
-        'punch_0': 'I',     # fpid 0 → status 'I' (masuk)
-        'punch_1': 'O',     # fpid 1 → status 'O' (keluar)
-        'punch_4': 'i',     # fpid 4 → status 'i' (masuk kecil)
-        'punch_5': 'o',     # fpid 5 → status 'o' (keluar kecil)
-        'punch_other': 'O'  # Default to 'O' for P1 Pulang device
+        'device_type': 'fingerspot_pulang',
+        'format_pattern': 'P1 PULANG-{increment}',  # {increment} = status_scan + 1
+        'punch_0': 'P1 PULANG-1',     # status_scan 0 → P1 PULANG-1
+        'punch_1': 'P1 PULANG-2',     # status_scan 1 → P1 PULANG-2
+        'punch_2': 'P1 PULANG-3',     # status_scan 2 → P1 PULANG-3
+        'punch_3': 'P1 PULANG-4',     # status_scan 3 → P1 PULANG-4
+        'punch_4': 'P1 PULANG-5',     # status_scan 4 → P1 PULANG-5
+        'punch_5': 'P1 PULANG-6',     # status_scan 5 → P1 PULANG-6
+        'punch_6': 'P1 PULANG-7',     # status_scan 6 → P1 PULANG-7
+        'punch_7': 'P1 PULANG-8',     # status_scan 7 → P1 PULANG-8
+        'punch_8': 'P1 PULANG-9',     # status_scan 8 → P1 PULANG-9
+        'punch_9': 'P1 PULANG-10',    # status_scan 9 → P1 PULANG-10
+        'punch_other': 'P1 PULANG-1'  # Default ke P1 PULANG-1 jika status_scan tidak dikenal
+    },
+    'Absensi Online': {
+        'device_type': 'online_attendance',
+        'I': '114',  # Status 'I' maps to machine '114'
+        'O': '112',  # Status 'O' maps to machine '112'
+        'punch_other': '112' # Default machine
     },
     'default': {
         'punch_0': 'I',  # In
@@ -204,7 +250,8 @@ DEVICE_DISPLAY_NAMES = {
     '102': 'P2-OUT',
     '103': 'Makan',
     '201': 'P1 Masuk',
-    '203': 'P1 Pulang'
+    '203': 'P1 Pulang',
+    'Absensi Online': 'Absensi Online'
 }
 
 # === Helper Functions ===
@@ -406,29 +453,36 @@ def validate_device_config():
             errors.append(f"Duplicate device name: {device['name']}")
         device_names.append(device['name'])
         
-        # Check for duplicate IPs
-        if device['ip'] in device_ips:
+        # Check for duplicate IPs (allow 'online' as a special case)
+        if device['ip'] != 'online' and device['ip'] in device_ips:
             errors.append(f"Duplicate device IP: {device['ip']}")
         device_ips.append(device['ip'])
         
         # Validate IP format (basic check)
-        ip_parts = device['ip'].split('.')
-        if len(ip_parts) != 4:
-            errors.append(f"Invalid IP format for device {device['name']}: {device['ip']}")
+        if device['ip'] != 'online':
+            ip_parts = device['ip'].split('.')
+            if len(ip_parts) != 4:
+                errors.append(f"Invalid IP format for device {device['name']}: {device['ip']}")
         
         # Validate port range
-        if not (1 <= device['port'] <= 65535):
+        if not (0 <= device['port'] <= 65535):
             errors.append(f"Invalid port for device {device['name']}: {device['port']}")
         
         # Validate connection type
-        valid_connection_types = ['zk', 'fingerspot_api']
+        valid_connection_types = ['zk', 'fingerspot_api', 'online_attendance']
         if device.get('connection_type') not in valid_connection_types:
             errors.append(f"Invalid connection_type for device {device['name']}: {device.get('connection_type')}")
         
-        # Validate Fingerspot API config
-        if device.get('connection_type') == 'fingerspot_api':
+        # Validate API config for relevant types
+        if device.get('connection_type') in ['fingerspot_api', 'online_attendance']:
             api_config = device.get('api_config', {})
-            required_api_fields = ['base_url', 'device_id', 'api_key']
+            
+            # Required fields berbeda untuk setiap connection type
+            if device.get('connection_type') == 'fingerspot_api':
+                required_api_fields = ['base_url', 'api_key', 'device_id']
+            elif device.get('connection_type') == 'online_attendance':
+                required_api_fields = ['base_url']  # api_key optional untuk online_attendance
+            
             for field in required_api_fields:
                 if field not in api_config or not api_config[field]:
                     errors.append(f"Missing or empty '{field}' in api_config for device {device['name']}")
@@ -460,3 +514,5 @@ for device in FINGERPRINT_DEVICES:
         'api_config': device.get('api_config', {}),
         'status_rules': device_rules
     }
+
+

@@ -291,6 +291,61 @@ class AttendanceModel:
         except Exception as e:
             return False, f"Error bulk adding to attendance queue: {str(e)}"
     
+    def get_attendance_logs(self, start_date=None, end_date=None, page=1, per_page=20):
+        """Get attendance logs with pagination and optional date filtering"""
+        try:
+            conn = self.db_manager.get_sqlserver_connection()
+            if not conn:
+                return [], 0, 0
+            
+            cursor = conn.cursor()
+            
+            # Build filter query
+            filter_query = ''
+            params = []
+            if start_date:
+                filter_query += ' AND timestamp >= ?'
+                params.append(start_date + ' 00:00:00')
+            if end_date:
+                filter_query += ' AND timestamp <= ?'
+                params.append(end_date + ' 23:59:59')
+            
+            # Get total count
+            count_query = f"SELECT COUNT(*) as count FROM log_absensi WHERE 1=1 {filter_query}"
+            cursor.execute(count_query, params)
+            total = cursor.fetchone()[0]
+            total_pages = (total + per_page - 1) // per_page
+            
+            # Get paginated data
+            offset = (page - 1) * per_page
+            data_query = (
+                "SELECT user_id, timestamp, status "
+                "FROM log_absensi "
+                f"WHERE 1=1 {filter_query} "
+                "ORDER BY timestamp DESC "
+                f"OFFSET {offset} ROWS FETCH NEXT {per_page} ROWS ONLY"
+            )
+            cursor.execute(data_query, params)
+            
+            # Convert to list of dictionaries
+            columns = [column[0] for column in cursor.description]
+            rows = cursor.fetchall()
+            logs = []
+            for row in rows:
+                log_dict = {}
+                for i, value in enumerate(row):
+                    log_dict[columns[i]] = value
+                logs.append(log_dict)
+            
+            cursor.close()
+            conn.close()
+            
+            return logs, total, total_pages
+            
+        except Exception as e:
+            print(f"Error getting attendance logs: {e}")
+            return [], 0, 0
+    
     def get_attendance_queue(self, status=None, limit=100):
         """Get attendance records from queue"""
         try:
@@ -510,7 +565,7 @@ class AttendanceModel:
             """
             
             # Process data in batches for better performance
-            batch_size = 1000
+            batch_size = 5000
             total_inserted = 0
             
             for i in range(0, len(filtered_data), batch_size):
@@ -526,9 +581,9 @@ class AttendanceModel:
                     
                     # Convert fpid to integer
                     try:
-                        fpid = int(record.get('fpid', 0))
+                        fpid = int(record.get('fpid', None))
                     except (ValueError, TypeError):
-                        fpid = 0
+                        fpid = None
                     
                     # Validate date format
                     if date_val and isinstance(date_val, str):
@@ -596,7 +651,7 @@ class AttendanceModel:
             pin = str(pin) if pin is not None else ''
             machine = str(machine) if machine is not None else ''
             status = str(status) if status is not None else 'I'
-            fpid = int(fpid) if fpid is not None else 0
+            fpid = int(fpid) if fpid is not None else None
             
             cursor.execute(insert_query, (pin, date, machine, status, fpid))
             conn.commit()
@@ -608,3 +663,168 @@ class AttendanceModel:
             
         except Exception as e:
             return False, f"Error adding FPLog record: {str(e)}"
+    
+    def check_attendance_queue_duplicate(self, pin, date, machine):
+        """Check if attendance_queue record already exists with same PIN, Date (down to minute), and Machine"""
+        try:
+            conn = self.db_manager.get_sqlserver_connection()
+            if not conn:
+                return False, "Database connection failed"
+            
+            cursor = conn.cursor()
+            
+            # Check for exact match: PIN, Date (down to minute), and Machine
+            check_query = """
+                SELECT COUNT(*) as count
+                FROM attendance_queues
+                WHERE pin = ? 
+                AND CONVERT(varchar(16), date, 120) = CONVERT(varchar(16), ?, 120)
+                AND machine = ?
+            """
+            
+            cursor.execute(check_query, (str(pin), date, str(machine)))
+            result = cursor.fetchone()
+            count = result[0] if result else 0
+            
+            cursor.close()
+            conn.close()
+            
+            return count > 0, f"Found {count} existing records"
+            
+        except Exception as e:
+            return False, f"Error checking duplicate: {str(e)}"
+    
+    def add_to_attendance_queue_if_not_duplicate(self, pin, date, status='baru', machine=None, punch_code=None):
+        """Add attendance record to queue only if it's not a duplicate"""
+        try:
+            # Check for duplicate first if machine is provided
+            if machine:
+                is_duplicate, message = self.check_attendance_queue_duplicate(pin, date, machine)
+                
+                if is_duplicate:
+                    return False, f"Duplicate record found - not inserted: PIN={pin}, Date={date}, Machine={machine}"
+            
+            # Insert the record using existing method
+            return self.add_to_attendance_queue(pin, date, status, machine, punch_code)
+            
+        except Exception as e:
+            return False, f"Error adding to attendance queue: {str(e)}"
+    
+    def get_failed_attendance_logs(self, start_date=None, end_date=None, page=1, per_page=50):
+        """Get failed attendance logs from gagalabsens table with pagination"""
+        try:
+            conn = self.db_manager.get_sqlserver_connection()
+            if not conn:
+                return [], 0, 0
+            
+            cursor = conn.cursor()
+            
+            # Build filter query
+            filter_query = ""
+            params = []
+            if start_date and end_date:
+                filter_query = " WHERE tgl BETWEEN ? AND ?"
+                params = [start_date + ' 00:00:00', end_date + ' 23:59:59']
+            elif start_date:
+                filter_query = " WHERE tgl >= ?"
+                params = [start_date + ' 00:00:00']
+            elif end_date:
+                filter_query = " WHERE tgl <= ?"
+                params = [end_date + ' 23:59:59']
+            
+            # Get total count
+            count_query = f"SELECT COUNT(*) as total FROM gagalabsens{filter_query}"
+            cursor.execute(count_query, params)
+            total = cursor.fetchone()[0]
+            
+            # Get paginated data
+            offset = (page - 1) * per_page
+            data_query = f"""
+                SELECT id, pin, tgl, machine, status, created_at, updated_at
+                FROM gagalabsens
+                {filter_query}
+                ORDER BY tgl DESC
+                OFFSET ? ROWS FETCH NEXT ? ROWS ONLY
+            """
+            params.extend([offset, per_page])
+            cursor.execute(data_query, params)
+            
+            # Convert to list of dictionaries
+            columns = [column[0] for column in cursor.description]
+            rows = cursor.fetchall()
+            data = []
+            for row in rows:
+                row_dict = {}
+                for i, value in enumerate(row):
+                    if hasattr(value, 'strftime') and value is not None:
+                        row_dict[columns[i]] = value.strftime('%Y-%m-%d %H:%M:%S')
+                    else:
+                        row_dict[columns[i]] = value
+                data.append(row_dict)
+            
+            cursor.close()
+            conn.close()
+            
+            total_pages = (total + per_page - 1) // per_page
+            return data, total, total_pages
+            
+        except Exception as e:
+            print(f"Error getting failed attendance logs: {e}")
+            return [], 0, 0
+    
+    def get_failed_attendance_stats(self):
+        """Get statistics for failed attendance logs"""
+        try:
+            conn = self.db_manager.get_sqlserver_connection()
+            if not conn:
+                return {}
+            
+            cursor = conn.cursor()
+            
+            # Get total count
+            cursor.execute("SELECT COUNT(*) as total FROM gagalabsens")
+            total = cursor.fetchone()[0]
+            
+            # Get count by status
+            cursor.execute("""
+                SELECT status, COUNT(*) as count 
+                FROM gagalabsens 
+                GROUP BY status 
+                ORDER BY count DESC
+            """)
+            status_counts = {}
+            for row in cursor.fetchall():
+                status_counts[row[0]] = row[1]
+            
+            # Get count by machine
+            cursor.execute("""
+                SELECT machine, COUNT(*) as count 
+                FROM gagalabsens 
+                GROUP BY machine 
+                ORDER BY count DESC
+            """)
+            machine_counts = {}
+            for row in cursor.fetchall():
+                machine_counts[row[0]] = row[1]
+            
+            # Get recent failed attendance (last 7 days)
+            cursor.execute("""
+                SELECT COUNT(*) as recent_count 
+                FROM gagalabsens 
+                WHERE tgl >= DATEADD(day, -7, GETDATE())
+            """)
+            recent_count = cursor.fetchone()[0]
+            
+            cursor.close()
+            conn.close()
+            
+            return {
+                'total': total,
+                'status_counts': status_counts,
+                'machine_counts': machine_counts,
+                'recent_count': recent_count
+            }
+            
+        except Exception as e:
+            print(f"Error getting failed attendance stats: {e}")
+            return {}

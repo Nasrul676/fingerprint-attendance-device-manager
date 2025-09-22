@@ -247,6 +247,10 @@ function performSearch() {
         limit: parseInt(document.getElementById('limitRecords').value)
     };
     
+    console.log("🔍 FPLog Export filters:", filters);
+    
+    console.log("🔍 FPLog Export filters:", filters);
+    
     // Show loading
     showLoading(true);
     updateSearchStatus('Mencari data...');
@@ -356,9 +360,11 @@ function exportToExcel() {
         machine: document.getElementById('machineFilter').value,
         status: document.getElementById('statusFilter').value,
         start_date: document.getElementById('startDate').value,
-        end_date: document.getElementById('endDate').value,
-        limit: 10000 // Higher limit for export
+        end_date: document.getElementById('endDate').value
+        // No limit for export - get all filtered data
     };
+    
+    console.log("🔍 FPLog Export filters:", filters);
     
     const exportBtn = document.getElementById('exportBtn');
     const originalText = exportBtn.innerHTML;
@@ -508,91 +514,6 @@ function createToastContainer() {
     document.body.appendChild(container);
     return container;
 }
-
-// Streaming notifications functionality
-let lastNotificationId = null;
-let notificationPollingInterval = null;
-
-function startStreamingNotifications() {
-    console.log('Starting streaming notifications polling...');
-    
-    // Poll for new notifications every 2 seconds
-    notificationPollingInterval = setInterval(checkStreamingNotifications, 2000);
-    
-    // Check immediately
-    checkStreamingNotifications();
-}
-
-function stopStreamingNotifications() {
-    if (notificationPollingInterval) {
-        clearInterval(notificationPollingInterval);
-        notificationPollingInterval = null;
-        console.log('Stopped streaming notifications polling');
-    }
-}
-
-function checkStreamingNotifications() {
-    fetch('/sync/streaming/notifications')
-        .then(response => response.json())
-        .then(data => {
-            if (data.status === 'success' && data.notifications && data.notifications.length > 0) {
-                // Process new notifications (ones we haven't seen yet)
-                data.notifications.forEach(notification => {
-                    if (notification.id !== lastNotificationId && notification.type === 'attendance_received') {
-                        showStreamingToast(notification);
-                        lastNotificationId = notification.id;
-                    }
-                });
-            }
-        })
-        .catch(error => {
-            console.error('Error checking streaming notifications:', error);
-        });
-}
-
-function showStreamingToast(notification) {
-    const toastContainer = document.getElementById('toastContainer') || createToastContainer();
-    
-    const toastHtml = `
-        <div class="toast" role="alert" aria-live="assertive" aria-atomic="true" data-bs-autohide="true" data-bs-delay="5000">
-            <div class="toast-header bg-success text-white">
-                <i class="fas fa-fingerprint me-2"></i>
-                <strong class="me-auto">Absensi Baru</strong>
-                <small class="text-white-50">${notification.timestamp}</small>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast"></button>
-            </div>
-            <div class="toast-body">
-                <strong>${notification.toast_message}</strong>
-                <br>
-                <small class="text-muted">Status: ${notification.status_display}</small>
-            </div>
-        </div>
-    `;
-    
-    toastContainer.insertAdjacentHTML('beforeend', toastHtml);
-    
-    // Initialize and show the toast
-    const toastElement = toastContainer.lastElementChild;
-    const toast = new bootstrap.Toast(toastElement);
-    toast.show();
-    
-    // Auto-remove toast element after it's hidden
-    toastElement.addEventListener('hidden.bs.toast', () => {
-        toastElement.remove();
-    });
-    
-    console.log('Streaming notification displayed:', notification.toast_message);
-}
-
-// Start streaming notifications when page loads
-document.addEventListener('DOMContentLoaded', function() {
-    startStreamingNotifications();
-});
-
-// Stop polling when page is about to unload
-window.addEventListener('beforeunload', function() {
-    stopStreamingNotifications();
-});
 </script>
 
 <style>

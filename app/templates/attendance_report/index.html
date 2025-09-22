@@ -581,6 +581,8 @@ $(document).ready(function() {
         showLoading();
 
         const exportFilters = { ...currentFilters };
+        console.log("🔍 Attendance Report Export filters:", exportFilters);
+        console.log("🔍 Attendance Report Export filters:", exportFilters);
         delete exportFilters.page;
         delete exportFilters.per_page;
 

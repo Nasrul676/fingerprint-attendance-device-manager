@@ -100,18 +100,13 @@
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav me-auto">
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('main.index') }}">
-                            <i class="fas fa-home me-1"></i>Dashboard
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('main.users') }}">
-                            <i class="fas fa-users me-1"></i>Users
-                        </a>
-                    </li>
-                    <li class="nav-item">
                         <a class="nav-link" href="{{ url_for('fplog.fplog_dashboard') }}">
                             <i class="fas fa-database me-1"></i>Data Absensi
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('failed_logs.failed_logs_dashboard') }}">
+                            <i class="fas fa-exclamation-triangle me-1"></i>Gagal Absen
                         </a>
                     </li>
                     <li class="nav-item">
@@ -125,8 +120,8 @@
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="/api/worker/dashboard">
-                            <i class="fas fa-cogs me-1"></i>Worker Dashboard
+                        <a class="nav-link" href="{{ url_for('worker.worker_dashboard') }}">
+                            <i class="fas fa-cogs me-1"></i>Manual Procedures
                         </a>
                     </li>
                 </ul>

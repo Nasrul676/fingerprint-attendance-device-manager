@@ -32,7 +32,7 @@ echo 🚀 Starting Attendance System...
 echo Press Ctrl+C to stop the server
 echo.
 
-python run.py
+python app.py
 
 echo.
 echo 🛑 Server stopped.

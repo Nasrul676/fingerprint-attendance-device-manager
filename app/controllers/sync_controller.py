@@ -274,6 +274,28 @@ class SyncController:
                         'connection_type': 'fingerspot_api'
                     })
             
+            elif connection_type == 'online_attendance':
+                # Test Online Attendance API connection
+                if not self.sync_service.online_attendance_service:
+                    return jsonify({
+                        'success': False,
+                        'message': 'Online Attendance service not available'
+                    })
+                
+                # Use online attendance service to test connection
+                success, message = self.sync_service.online_attendance_service.test_connection(device_config)
+                
+                return jsonify({
+                    'success': success,
+                    'message': message,
+                    'connection_type': 'online_attendance',
+                    'device_info': {
+                        'api_url': device_config.get('api_config', {}).get('base_url', ''),
+                        'endpoint': device_config.get('api_config', {}).get('endpoint', ''),
+                        'test_result': 'Success' if success else 'Failed'
+                    }
+                })
+            
             else:
                 # Test ZK connection (existing logic)
                 try:

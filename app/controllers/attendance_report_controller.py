@@ -76,6 +76,10 @@ def api_data():
         if request.args.get('keterangan'):
             filters['keterangan'] = request.args.get('keterangan')
         
+        print(f"🔍 Attendance Report Export - Filters: {filters}")
+        
+        print(f"🔍 Attendance Report Export - Filters: {filters}")
+        
         # Limit per_page to prevent excessive loads
         per_page = min(per_page, 500)
         
@@ -161,6 +165,10 @@ def api_export():
         if request.args.get('keterangan'):
             filters['keterangan'] = request.args.get('keterangan')
         
+        print(f"🔍 Attendance Report Export - Filters: {filters}")
+        
+        print(f"🔍 Attendance Report Export - Filters: {filters}")
+        
         # Export to Excel
         excel_file = model.export_to_excel(filters=filters)
         
@@ -243,6 +251,10 @@ def api_summary():
         
         if request.args.get('keterangan'):
             filters['keterangan'] = request.args.get('keterangan')
+        
+        print(f"🔍 Attendance Report Export - Filters: {filters}")
+        
+        print(f"🔍 Attendance Report Export - Filters: {filters}")
         
         summary = model.get_summary_stats(filters=filters)
         

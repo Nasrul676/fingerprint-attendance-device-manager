@@ -1,0 +1,648 @@
+{% extends "base.html" %}
+
+{% block title %}Job Management - Attendance System{% endblock %}
+
+{% block extra_css %}
+<style>
+    .job-card {
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        margin-bottom: 1rem;
+        transition: box-shadow 0.15s ease-in-out;
+    }
+    .job-card:hover {
+        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    }
+    .job-status {
+        font-weight: bold;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 0.875em;
+    }
+    .status-pending { background-color: #fff3cd; color: #856404; }
+    .status-running { background-color: #d1ecf1; color: #0c5460; }
+    .status-completed { background-color: #d4edda; color: #155724; }
+    .status-failed { background-color: #f8d7da; color: #721c24; }
+    .status-cancelled { background-color: #f1f3f4; color: #6c757d; }
+    
+    .notification-badge {
+        position: relative;
+        display: inline-block;
+    }
+    .notification-count {
+        position: absolute;
+        top: -8px;
+        right: -8px;
+        background-color: #dc3545;
+        color: white;
+        border-radius: 50%;
+        width: 20px;
+        height: 20px;
+        font-size: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 20px;
+    }
+    
+    .stats-card {
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        padding: 1rem;
+        text-align: center;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        margin-bottom: 1rem;
+    }
+    
+    .procedure-form {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+    }
+    
+    .job-details {
+        background: #f8f9fa;
+        border-radius: 4px;
+        padding: 1rem;
+        margin-top: 1rem;
+    }
+    
+    .notification-item {
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+        padding: 0.75rem;
+        margin-bottom: 0.5rem;
+        background: white;
+    }
+    .notification-item.unread {
+        background: #e3f2fd;
+        border-color: #2196f3;
+    }
+    .notification-time {
+        color: #6c757d;
+        font-size: 0.875em;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2>Job Management Dashboard</h2>
+                <div>
+                    <button class="btn btn-outline-primary me-2" id="refreshJobs">
+                        <i class="fas fa-sync-alt"></i> Refresh
+                    </button>
+                    <div class="notification-badge d-inline-block">
+                        <button class="btn btn-outline-info" id="showNotifications">
+                            <i class="fas fa-bell"></i> Notifications
+                        </button>
+                        <span class="notification-count" id="notificationCount" style="display: none;">0</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistics Row -->
+    <div class="row mb-4">
+        <div class="col-md-3 col-sm-6">
+            <div class="stats-card">
+                <h4 id="pendingCount">0</h4>
+                <p class="mb-0">Pending Jobs</p>
+            </div>
+        </div>
+        <div class="col-md-3 col-sm-6">
+            <div class="stats-card">
+                <h4 id="runningCount">0</h4>
+                <p class="mb-0">Running Jobs</p>
+            </div>
+        </div>
+        <div class="col-md-3 col-sm-6">
+            <div class="stats-card">
+                <h4 id="completedCount">0</h4>
+                <p class="mb-0">Completed Jobs</p>
+            </div>
+        </div>
+        <div class="col-md-3 col-sm-6">
+            <div class="stats-card">
+                <h4 id="failedCount">0</h4>
+                <p class="mb-0">Failed Jobs</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create New Job Form -->
+    <div class="row">
+        <div class="col-12">
+            <div class="procedure-form">
+                <h5><i class="fas fa-plus-circle"></i> Create New Procedure Job</h5>
+                <form id="createJobForm">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <label for="targetDate" class="form-label">Target Date</label>
+                            <input type="date" class="form-control" id="targetDate" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="priority" class="form-label">Priority</label>
+                            <select class="form-control" id="priority">
+                                <option value="1">High (1)</option>
+                                <option value="3">Medium High (3)</option>
+                                <option value="5" selected>Normal (5)</option>
+                                <option value="7">Low (7)</option>
+                                <option value="9">Very Low (9)</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Procedures</label>
+                            <div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" value="attrecord" id="procAttrecord" checked>
+                                    <label class="form-check-label" for="procAttrecord">attrecord</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" value="spjamkerja" id="procSpjamkerja" checked>
+                                    <label class="form-check-label" for="procSpjamkerja">spjamkerja</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row mt-3">
+                        <div class="col-12">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-play"></i> Create Job
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Jobs List -->
+    <div class="row">
+        <div class="col-12">
+            <h5><i class="fas fa-list"></i> Your Jobs</h5>
+            <div id="jobsList">
+                <div class="text-center py-4">
+                    <div class="spinner-border" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-2">Loading jobs...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Notifications Modal -->
+<div class="modal fade" id="notificationsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Job Notifications</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="notificationsList">
+                    <div class="text-center py-4">
+                        <div class="spinner-border" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Job Details Modal -->
+<div class="modal fade" id="jobDetailsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Job Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="jobDetailsContent"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-danger" id="cancelJobBtn" style="display: none;">Cancel Job</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+class JobDashboard {
+    constructor() {
+        this.currentJobId = null;
+        this.refreshInterval = null;
+        this.notificationInterval = null;
+        this.init();
+    }
+
+    init() {
+        this.bindEvents();
+        this.loadStatistics();
+        this.loadJobs();
+        this.loadNotifications();
+        this.startAutoRefresh();
+    }
+
+    bindEvents() {
+        // Form submission
+        document.getElementById('createJobForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            this.createJob();
+        });
+
+        // Refresh button
+        document.getElementById('refreshJobs').addEventListener('click', () => {
+            this.loadJobs();
+            this.loadStatistics();
+        });
+
+        // Notifications button
+        document.getElementById('showNotifications').addEventListener('click', () => {
+            this.showNotificationsModal();
+        });
+
+        // Cancel job button
+        document.getElementById('cancelJobBtn').addEventListener('click', () => {
+            this.cancelCurrentJob();
+        });
+    }
+
+    async createJob() {
+        try {
+            const targetDate = document.getElementById('targetDate').value;
+            const priority = parseInt(document.getElementById('priority').value);
+            
+            const procedures = [];
+            if (document.getElementById('procAttrecord').checked) {
+                procedures.push('attrecord');
+            }
+            if (document.getElementById('procSpjamkerja').checked) {
+                procedures.push('spjamkerja');
+            }
+
+            if (procedures.length === 0) {
+                toastr.error('Please select at least one procedure');
+                return;
+            }
+
+            const response = await fetch('/job/procedure', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    target_date: targetDate,
+                    procedures: procedures,
+                    priority: priority
+                })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                toastr.success(`Job created successfully! Job ID: ${data.job_id}`);
+                document.getElementById('createJobForm').reset();
+                this.loadJobs();
+                this.loadStatistics();
+            } else {
+                toastr.error(data.message || 'Failed to create job');
+            }
+        } catch (error) {
+            console.error('Error creating job:', error);
+            toastr.error('Error creating job');
+        }
+    }
+
+    async loadStatistics() {
+        try {
+            const response = await fetch('/job/statistics/api');
+            const data = await response.json();
+
+            if (data.success) {
+                const stats = data.statistics.status_counts || {};
+                document.getElementById('pendingCount').textContent = stats.pending || 0;
+                document.getElementById('runningCount').textContent = stats.running || 0;
+                document.getElementById('completedCount').textContent = stats.completed || 0;
+                document.getElementById('failedCount').textContent = stats.failed || 0;
+            }
+        } catch (error) {
+            console.error('Error loading statistics:', error);
+        }
+    }
+
+    async loadJobs() {
+        try {
+            const response = await fetch('/job/user?limit=20');
+            const data = await response.json();
+
+            if (data.success) {
+                this.renderJobs(data.jobs);
+            } else {
+                document.getElementById('jobsList').innerHTML = 
+                    '<div class="alert alert-warning">Failed to load jobs</div>';
+            }
+        } catch (error) {
+            console.error('Error loading jobs:', error);
+            document.getElementById('jobsList').innerHTML = 
+                '<div class="alert alert-danger">Error loading jobs</div>';
+        }
+    }
+
+    renderJobs(jobs) {
+        const container = document.getElementById('jobsList');
+        
+        if (jobs.length === 0) {
+            container.innerHTML = '<div class="alert alert-info">No jobs found</div>';
+            return;
+        }
+
+        let html = '';
+        jobs.forEach(job => {
+            const statusClass = `status-${job.status}`;
+            const createdAt = new Date(job.created_at).toLocaleString();
+            const startedAt = job.started_at ? new Date(job.started_at).toLocaleString() : 'Not started';
+            const completedAt = job.completed_at ? new Date(job.completed_at).toLocaleString() : 'Not completed';
+
+            html += `
+                <div class="job-card">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <h6 class="card-title">
+                                    <i class="fas fa-cog"></i> ${job.job_type}
+                                    <span class="job-status ${statusClass}">${job.status}</span>
+                                </h6>
+                                <p class="text-muted mb-2">Job ID: ${job.job_id}</p>
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <small><strong>Target Date:</strong> ${job.job_data.target_date || 'N/A'}</small><br>
+                                        <small><strong>Procedures:</strong> ${(job.job_data.procedures || []).join(', ')}</small><br>
+                                        <small><strong>Priority:</strong> ${job.priority}</small>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <small><strong>Created:</strong> ${createdAt}</small><br>
+                                        <small><strong>Started:</strong> ${startedAt}</small><br>
+                                        <small><strong>Completed:</strong> ${completedAt}</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div>
+                                <button class="btn btn-sm btn-outline-primary me-1" onclick="jobDashboard.showJobDetails('${job.job_id}')">
+                                    <i class="fas fa-eye"></i> Details
+                                </button>
+                                ${job.status === 'pending' ? 
+                                    `<button class="btn btn-sm btn-outline-danger" onclick="jobDashboard.cancelJob('${job.job_id}')">
+                                        <i class="fas fa-times"></i> Cancel
+                                    </button>` : ''
+                                }
+                            </div>
+                        </div>
+                        
+                        ${job.error_message ? 
+                            `<div class="alert alert-danger mt-2 mb-0">
+                                <small><strong>Error:</strong> ${job.error_message}</small>
+                            </div>` : ''
+                        }
+                        
+                        ${job.result_summary ? 
+                            `<div class="job-details mt-2">
+                                <small><strong>Result:</strong> ${job.result_summary.successful_procedures}/${job.result_summary.total_procedures} procedures completed successfully</small>
+                            </div>` : ''
+                        }
+                    </div>
+                </div>
+            `;
+        });
+
+        container.innerHTML = html;
+    }
+
+    async showJobDetails(jobId) {
+        try {
+            const response = await fetch(`/job/${jobId}/status`);
+            const data = await response.json();
+
+            if (data.success) {
+                this.currentJobId = jobId;
+                const job = data.job;
+                
+                let html = `
+                    <div class="row">
+                        <div class="col-md-6">
+                            <strong>Job ID:</strong> ${job.job_id}<br>
+                            <strong>Type:</strong> ${job.job_type}<br>
+                            <strong>Status:</strong> <span class="job-status status-${job.status}">${job.status}</span><br>
+                            <strong>Priority:</strong> ${job.priority}<br>
+                            <strong>Attempts:</strong> ${job.attempts}/${job.max_attempts}
+                        </div>
+                        <div class="col-md-6">
+                            <strong>Created:</strong> ${new Date(job.created_at).toLocaleString()}<br>
+                            <strong>Started:</strong> ${job.started_at ? new Date(job.started_at).toLocaleString() : 'Not started'}<br>
+                            <strong>Completed:</strong> ${job.completed_at ? new Date(job.completed_at).toLocaleString() : 'Not completed'}<br>
+                            <strong>User:</strong> ${job.user_id}
+                        </div>
+                    </div>
+                    
+                    <hr>
+                    
+                    <h6>Job Data:</h6>
+                    <pre class="bg-light p-2 rounded">${JSON.stringify(job.job_data, null, 2)}</pre>
+                `;
+
+                if (job.error_message) {
+                    html += `
+                        <h6 class="text-danger">Error Message:</h6>
+                        <div class="alert alert-danger">${job.error_message}</div>
+                    `;
+                }
+
+                if (job.result_data) {
+                    html += `
+                        <h6 class="text-success">Result Data:</h6>
+                        <pre class="bg-light p-2 rounded">${JSON.stringify(job.result_data, null, 2)}</pre>
+                    `;
+                }
+
+                document.getElementById('jobDetailsContent').innerHTML = html;
+                
+                // Show cancel button for pending jobs
+                const cancelBtn = document.getElementById('cancelJobBtn');
+                if (job.status === 'pending') {
+                    cancelBtn.style.display = 'block';
+                } else {
+                    cancelBtn.style.display = 'none';
+                }
+
+                new bootstrap.Modal(document.getElementById('jobDetailsModal')).show();
+            } else {
+                toastr.error(data.message || 'Failed to load job details');
+            }
+        } catch (error) {
+            console.error('Error loading job details:', error);
+            toastr.error('Error loading job details');
+        }
+    }
+
+    async cancelJob(jobId) {
+        if (!confirm('Are you sure you want to cancel this job?')) {
+            return;
+        }
+
+        try {
+            const response = await fetch(`/job/${jobId}/cancel`, {
+                method: 'POST'
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                toastr.success('Job cancelled successfully');
+                this.loadJobs();
+                this.loadStatistics();
+            } else {
+                toastr.error(data.message || 'Failed to cancel job');
+            }
+        } catch (error) {
+            console.error('Error cancelling job:', error);
+            toastr.error('Error cancelling job');
+        }
+    }
+
+    async cancelCurrentJob() {
+        if (this.currentJobId) {
+            await this.cancelJob(this.currentJobId);
+            bootstrap.Modal.getInstance(document.getElementById('jobDetailsModal')).hide();
+        }
+    }
+
+    async loadNotifications() {
+        try {
+            const response = await fetch('/job/notifications?unread_only=true');
+            const data = await response.json();
+
+            if (data.success) {
+                const unreadCount = data.notifications.length;
+                const countElement = document.getElementById('notificationCount');
+                
+                if (unreadCount > 0) {
+                    countElement.textContent = unreadCount;
+                    countElement.style.display = 'flex';
+                } else {
+                    countElement.style.display = 'none';
+                }
+            }
+        } catch (error) {
+            console.error('Error loading notifications:', error);
+        }
+    }
+
+    async showNotificationsModal() {
+        try {
+            const response = await fetch('/job/notifications?limit=50');
+            const data = await response.json();
+
+            if (data.success) {
+                this.renderNotifications(data.notifications);
+                new bootstrap.Modal(document.getElementById('notificationsModal')).show();
+            } else {
+                toastr.error('Failed to load notifications');
+            }
+        } catch (error) {
+            console.error('Error loading notifications:', error);
+            toastr.error('Error loading notifications');
+        }
+    }
+
+    renderNotifications(notifications) {
+        const container = document.getElementById('notificationsList');
+        
+        if (notifications.length === 0) {
+            container.innerHTML = '<div class="text-center py-4">No notifications found</div>';
+            return;
+        }
+
+        let html = '';
+        notifications.forEach(notification => {
+            const readClass = notification.is_read ? '' : 'unread';
+            const createdAt = new Date(notification.created_at).toLocaleString();
+
+            html += `
+                <div class="notification-item ${readClass}" onclick="jobDashboard.markNotificationRead('${notification.notification_id}', this)">
+                    <div class="d-flex justify-content-between">
+                        <h6 class="mb-1">${notification.title}</h6>
+                        <small class="notification-time">${createdAt}</small>
+                    </div>
+                    <p class="mb-1">${notification.message}</p>
+                    <small class="text-muted">Job: ${notification.job_id}</small>
+                </div>
+            `;
+        });
+
+        container.innerHTML = html;
+    }
+
+    async markNotificationRead(notificationId, element) {
+        try {
+            const response = await fetch(`/job/notifications/${notificationId}/read`, {
+                method: 'POST'
+            });
+
+            if (response.ok) {
+                element.classList.remove('unread');
+                this.loadNotifications(); // Refresh count
+            }
+        } catch (error) {
+            console.error('Error marking notification as read:', error);
+        }
+    }
+
+    startAutoRefresh() {
+        // Refresh jobs every 30 seconds
+        this.refreshInterval = setInterval(() => {
+            this.loadJobs();
+            this.loadStatistics();
+        }, 30000);
+
+        // Check notifications every 60 seconds
+        this.notificationInterval = setInterval(() => {
+            this.loadNotifications();
+        }, 60000);
+    }
+
+    stopAutoRefresh() {
+        if (this.refreshInterval) {
+            clearInterval(this.refreshInterval);
+        }
+        if (this.notificationInterval) {
+            clearInterval(this.notificationInterval);
+        }
+    }
+}
+
+// Initialize dashboard
+const jobDashboard = new JobDashboard();
+
+// Cleanup on page unload
+window.addEventListener('beforeunload', () => {
+    jobDashboard.stopAutoRefresh();
+});
+</script>
+{% endblock %}

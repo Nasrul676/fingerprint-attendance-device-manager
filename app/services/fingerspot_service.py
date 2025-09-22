@@ -21,11 +21,12 @@ logger = get_streaming_logger()
 
 class FingerspotAttendance:
     """Data class for Fingerspot attendance record"""
-    def __init__(self, user_id: str, timestamp: datetime, punch: int, uid: int = None):
+    def __init__(self, user_id: str, timestamp: datetime, punch: int, uid: int = None, original_status_scan = None):
         self.user_id = user_id
         self.timestamp = timestamp
         self.punch = punch
         self.uid = uid
+        self.original_status_scan = original_status_scan  # Store original status_scan value (can be int or str)
 
 class FingerspotAPIService:
     """Service for handling Fingerspot API communication"""
@@ -279,12 +280,16 @@ class FingerspotAPIService:
                         logger.warning(f"No status_scan/punch/status found in record: {record}")
                         continue
                     
+                    # Store original status_scan value for queue processing (keep as original type)
+                    original_status_scan = punch  # Keep original value (integer from API)
+                    
                     # Create attendance object
                     attendance = FingerspotAttendance(
                         user_id=str(user_id),
                         timestamp=timestamp,
                         punch=int(punch),
-                        uid=record.get('uid')
+                        uid=record.get('uid'),
+                        original_status_scan=original_status_scan
                     )
                     
                     attendance_records.append(attendance)
@@ -341,6 +346,7 @@ class FingerspotAPIService:
                     'Date': att.timestamp.strftime('%Y-%m-%d %H:%M:%S'),
                     'Machine': device_name,
                     'Status': device_status,  # Use converted status, not punch code
+                    'Punch': att.punch,  # Original punch code from device
                     'fpid': None  # Will be filled later by sync process
                 }
                 

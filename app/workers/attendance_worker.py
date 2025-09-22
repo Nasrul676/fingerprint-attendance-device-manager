@@ -28,7 +28,7 @@ class AttendanceWorker:
             logger.info("[WORKER] Memulai pemrosesan antrian absensi...")
             
             # Ambil data dari antrian dengan status 'baru'
-            queue_records = self.attendance_model.get_attendance_queue(status='baru', limit=1000)
+            queue_records = self.attendance_model.get_attendance_queue(status='baru', limit=5000)
             
             if not queue_records:
                 logger.info("[WORKER] Tidak ada data dengan status 'baru' dalam antrian")
@@ -38,25 +38,31 @@ class AttendanceWorker:
             
             # Kelompokkan berdasarkan tanggal
             date_groups = self._group_by_date(queue_records)
+
+            target_date = datetime.now() - timedelta(days=2)
+            target_date_str = target_date.strftime('%Y-%m-%d')
             
-            # Proses setiap kelompok tanggal
-            for date_str, records in date_groups.items():
-                logger.info(f"[DATE] Memproses tanggal: {date_str} ({len(records)} records)")
-                
+            # Proses hanya untuk tanggal target
+            if target_date_str in date_groups:
+                records = date_groups[target_date_str]
+                logger.info(f"[WORKER] Memproses tanggal target: {target_date_str} ({len(records)} records)")
+
                 # Update status menjadi 'diproses' sebelum menjalankan prosedur
                 self._update_records_status(records, 'diproses')
-                
+
                 # Jalankan prosedur untuk tanggal ini
-                success = self._run_procedures_for_date(date_str)
-                
+                success = self._run_procedures_for_date(target_date_str)
+
                 if success:
                     # Update status record menjadi 'selesai'
                     self._update_records_status(records, 'selesai')
-                    logger.info(f"[SUCCESS] Berhasil memproses tanggal {date_str}")
+                    logger.info(f"[SUCCESS] Berhasil memproses tanggal {target_date_str}")
                 else:
                     # Jika gagal, kembalikan status ke 'baru'
                     self._update_records_status(records, 'baru')
-                    logger.error(f"[ERROR] Gagal memproses tanggal {date_str}, status dikembalikan ke 'baru'")
+                    logger.error(f"[ERROR] Gagal memproses tanggal {target_date_str}, status dikembalikan ke 'baru'")
+            else:
+                logger.info(f"[WORKER] Tidak ada data untuk tanggal target {target_date_str} yang perlu diproses.")
             
             logger.info("[DONE] Selesai memproses antrian absensi")
             
@@ -118,7 +124,7 @@ class AttendanceWorker:
             logger.error(f"[ERROR] Error update status: {str(e)}")
     
     def start_scheduler(self):
-        """Memulai scheduler worker"""
+        """Memulai scheduler worker dengan background threading"""
         if self.is_running:
             logger.warning("[WARNING] Worker sudah berjalan")
             return
@@ -126,27 +132,41 @@ class AttendanceWorker:
         self.is_running = True
         logger.info("[START] Memulai Attendance Worker...")
         
-        # Schedule job setiap 30 menit
-        schedule.every(30).minutes.do(self.process_attendance_queue)
+        # Schedule job untuk berjalan setiap hari jam 11 malam (23:00)
+        schedule.every().day.at("23:00").do(self._process_attendance_queue_safe)
         
-        # Jalankan sekali saat startup
+        # Jalankan sekali saat startup dalam thread terpisah
         logger.info("[INIT] Menjalankan pemrosesan pertama kali...")
-        self.process_attendance_queue()
+        initial_thread = threading.Thread(
+            target=self._process_attendance_queue_safe,
+            name="InitialProcessing",
+            daemon=True
+        )
+        initial_thread.start()
         
-        # Loop scheduler
+        # Loop scheduler dengan sleep yang lebih optimal
         while self.is_running and not self._stop_event.is_set():
             try:
                 schedule.run_pending()
-                time.sleep(60)  # Check setiap menit
+                # Gunakan wait dengan timeout untuk responsiveness yang lebih baik
+                self._stop_event.wait(timeout=300)  # Check setiap 5 menit
                 
             except KeyboardInterrupt:
                 logger.info("[STOP] Menerima signal stop dari keyboard")
                 break
             except Exception as e:
                 logger.error(f"[ERROR] Error dalam scheduler loop: {str(e)}")
-                time.sleep(60)
+                self._stop_event.wait(timeout=60)  # Wait 1 menit sebelum retry
         
         logger.info("[STOP] Attendance Worker dihentikan")
+    
+    def _process_attendance_queue_safe(self):
+        """Wrapper untuk process_attendance_queue dengan error handling yang aman"""
+        try:
+            self.process_attendance_queue()
+        except Exception as e:
+            logger.error(f"[ERROR] Error dalam background processing: {str(e)}")
+            # Jangan crash worker, hanya log error
     
     def stop_scheduler(self):
         """Menghentikan scheduler worker"""

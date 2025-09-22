@@ -14,8 +14,10 @@ from config.devices import (
     get_status_display,
     get_device_display_name,
     get_zk_devices,
-    get_fingerspot_api_devices
+    get_fingerspot_api_devices,
+    get_devices_by_connection_type
 )
+from app.services.online_attendance_service import OnlineAttendanceService
 
 class SyncService:
     """Service for synchronizing FPLog data from multiple fingerprint devices"""
@@ -26,6 +28,14 @@ class SyncService:
         self.sync_threads = {}
         self.sync_status = {}
         self._pyzk_available = self._check_pyzk_availability()
+        
+        # Initialize Online Attendance service
+        try:
+            self.online_attendance_service = OnlineAttendanceService()
+            print("Online Attendance service initialized successfully")
+        except Exception as e:
+            self.online_attendance_service = None
+            print(f"Warning: Online Attendance service not available - Initialization error: {e}")
         
         # Initialize Fingerspot API service
         try:
@@ -110,6 +120,8 @@ class SyncService:
         # Route to appropriate sync method based on connection type
         if connection_type == 'fingerspot_api':
             return self._sync_fingerspot_device(device_config, start_date, end_date)
+        elif connection_type == 'online_attendance':
+            return self._sync_online_attendance_device(device_config, start_date, end_date)
         else:
             return self._sync_zk_device(device_config, start_date, end_date)
     
@@ -187,13 +199,28 @@ class SyncService:
                 
                 print(f"Record {i+1}: PIN {pin}, Punch {att.punch} -> Status: {device_status} ({status_display})")
                 
-                fplog_data.append({
-                    'PIN': pin,
-                    'Date': att.timestamp.strftime('%Y-%m-%d %H:%M:%S'),
-                    'Machine': device_name,
-                    'Status': device_status,
-                    'fpid': fpid_value  # Now using attid from employees table
-                })
+                # For device 201 (Fingerspot API), we need to preserve the original punch code
+                # Store original punch code in fpid for device 201, ATTID mapping in different way
+                if device_name == '201':
+                    print(f"   -> Device 201: Storing original punch code {att.punch} in fpid field")
+                    fplog_record = {
+                        'PIN': pin,
+                        'Date': att.timestamp.strftime('%Y-%m-%d %H:%M:%S'),
+                        'Machine': device_name,
+                        'Status': device_status,
+                        'fpid': att.punch,  # Store original punch code for device 201
+                        'attid': fpid_value  # Store ATTID separately (could be used in comments or other field)
+                    }
+                else:
+                    fplog_record = {
+                        'PIN': pin,
+                        'Date': att.timestamp.strftime('%Y-%m-%d %H:%M:%S'),
+                        'Machine': device_name,
+                        'Status': device_status,
+                        'fpid': fpid_value  # For other devices, use ATTID mapping
+                    }
+                
+                fplog_data.append(fplog_record)
             
             print(f"FPID mapped for {fpid_mapped_count} out of {len(fplog_data)} records")
             
@@ -279,6 +306,74 @@ class SyncService:
         finally:
             self.sync_status[device_name]['end_time'] = datetime.now()
     
+    def _sync_online_attendance_device(self, device_config, start_date=None, end_date=None):
+        """Synchronize attendance data from the online attendance API"""
+        device_name = device_config['name']
+        
+        if not self.online_attendance_service:
+            error_msg = "Online Attendance service not available"
+            self.sync_status[device_name]['status'] = 'error'
+            self.sync_status[device_name]['message'] = error_msg
+            self.sync_status[device_name]['end_time'] = datetime.now()
+            return False, error_msg
+
+        try:
+            self.sync_status[device_name]['status'] = 'reading'
+            self.sync_status[device_name]['message'] = 'Reading attendance data from Online Attendance API...'
+
+            # Set default date range if not provided (e.g., today)
+            if not start_date or not end_date:
+                today = datetime.now().date()
+                start_date = start_date or today
+                end_date = end_date or today
+
+            # Fetch data
+            fplog_data = self.online_attendance_service.get_attendance_logs(
+                start_date.strftime('%Y-%m-%d'),
+                end_date.strftime('%Y-%m-%d')
+            )
+
+            if not fplog_data:
+                self.sync_status[device_name]['status'] = 'completed'
+                self.sync_status[device_name]['message'] = 'No new data found from Online Attendance API'
+                return True, 'No new data found'
+
+            # Data is already transformed by OnlineAttendanceService, now add to queue
+            self.sync_status[device_name]['status'] = 'queuing'
+            self.sync_status[device_name]['message'] = f'Adding {len(fplog_data)} online attendance records to queue...'
+
+            queue_records = []
+            for record in fplog_data:
+                queue_record = {
+                    'pin': record['pin'],
+                    'date': record['datetime'].strftime('%Y-%m-%d %H:%M:%S'),
+                    'status': 'baru',
+                    'machine': record['machine'],
+                    'punch_code': record['punch'],
+                    'source_type': 'online_attendance'
+                }
+                queue_records.append(queue_record)
+
+            success, message = self.attendance_model.bulk_add_to_attendance_queue_if_not_duplicate(queue_records)
+
+            if success:
+                self.sync_status[device_name]['status'] = 'completed'
+                self.sync_status[device_name]['message'] = f"Successfully queued {len(fplog_data)} records from Online Attendance API."
+                self.sync_status[device_name]['records_synced'] = len(fplog_data)
+                return True, self.sync_status[device_name]['message']
+            else:
+                self.sync_status[device_name]['status'] = 'error'
+                self.sync_status[device_name]['message'] = f"Failed to queue records: {message}"
+                return False, self.sync_status[device_name]['message']
+
+        except Exception as e:
+            error_msg = f"Error syncing Online Attendance device {device_name}: {str(e)}"
+            self.sync_status[device_name]['status'] = 'error'
+            self.sync_status[device_name]['message'] = error_msg
+            return False, error_msg
+        finally:
+            self.sync_status[device_name]['end_time'] = datetime.now()
+    
     def _process_zk_fplog_data(self, device_name, fplog_data, fpid_mapped_count, start_date=None, end_date=None):
         """Process fplog data for ZK devices with specific handling"""
         if not fplog_data:
@@ -314,12 +409,12 @@ class SyncService:
         else:
             print(f"Successfully added ZK records to attendance queue: {queue_message}")
         
-        # Sync to SQL Server FPLog with ZK-specific processing
+        # Sync to SQL Server FPLog with ZK-specific processing and duplicate check
         self.sync_status[device_name]['status'] = 'syncing'
-        self.sync_status[device_name]['message'] = f'Syncing {len(fplog_data)} ZK records to FPLog table...'
+        self.sync_status[device_name]['message'] = f'Syncing {len(fplog_data)} ZK records to FPLog table with duplicate check...'
         
-        # Pass date range and device type to sync method
-        success, message = self.attendance_model.sync_fplog_to_sqlserver(
+        # Pass date range and device type to sync method with duplicate check
+        success, message = self.attendance_model.sync_fplog_to_sqlserver_with_duplicate_check(
             fplog_data, 
             start_date.strftime('%Y-%m-%d') if start_date else None,
             end_date.strftime('%Y-%m-%d') if end_date else None
@@ -355,12 +450,21 @@ class SyncService:
         # Prepare queue records for Fingerspot API devices
         queue_records = []
         for fplog_record in fplog_data:
+            # For device 201, extract original punch code from fpid field
+            punch_code = None
+            if fplog_record['Machine'] == '201':
+                # Device 201 uses punch as punch_code for attendance_queue
+                punch_code = fplog_record.get('Punch', None)
+            else:
+                # For other devices, use fpid or fallback to Status
+                punch_code = fplog_record.get('fpid', fplog_record.get('Status', None))
+                
             queue_record = {
                 'pin': fplog_record['PIN'],
                 'date': fplog_record['Date'],
                 'status': 'baru',  # Different status for API devices
                 'machine': fplog_record['Machine'],
-                'punch_code': fplog_record.get('status_scan', None),
+                'punch_code': punch_code,
                 'source_type': 'fingerspot_api'  # Mark as API source
             }
             queue_records.append(queue_record)
@@ -372,12 +476,12 @@ class SyncService:
         else:
             print(f"Successfully added Fingerspot API records to attendance queue: {queue_message}")
         
-        # Sync to SQL Server FPLog with API-specific processing
+        # Sync to SQL Server FPLog with API-specific processing and duplicate check
         self.sync_status[device_name]['status'] = 'syncing'
-        self.sync_status[device_name]['message'] = f'Syncing {len(fplog_data)} Fingerspot API records to FPLog table...'
+        self.sync_status[device_name]['message'] = f'Syncing {len(fplog_data)} Fingerspot API records to FPLog table with duplicate check...'
         
-        # Pass date range and device type to sync method
-        success, message = self.attendance_model.sync_fplog_to_sqlserver(
+        # Pass date range and device type to sync method with duplicate check
+        success, message = self.attendance_model.sync_fplog_to_sqlserver_with_duplicate_check(
             fplog_data, 
             start_date.strftime('%Y-%m-%d') if start_date else None,
             end_date.strftime('%Y-%m-%d') if end_date else None
@@ -393,6 +497,50 @@ class SyncService:
             self.sync_status[device_name]['status'] = 'error'
             error_message = f"Fingerspot API Device sync failed: {message}"
             self.sync_status[device_name]['message'] = error_message
+            return False, error_message
+    
+    def _sync_online_attendance_device(self, device_config, start_date=None, end_date=None):
+        """Synchronize data from Online Attendance API"""
+        device_name = device_config['name']
+        
+        if not self.online_attendance_service:
+            self.sync_status[device_name]['status'] = 'error'
+            self.sync_status[device_name]['message'] = 'Online Attendance service not available'
+            self.sync_status[device_name]['end_time'] = datetime.now()
+            return False, 'Online Attendance service not available'
+        
+        try:
+            self.sync_status[device_name]['status'] = 'fetching'
+            self.sync_status[device_name]['message'] = 'Fetching data from Online Attendance API...'
+            
+            # Convert date objects to strings if provided
+            start_date_str = start_date.strftime('%Y-%m-%d') if start_date else None
+            end_date_str = end_date.strftime('%Y-%m-%d') if end_date else None
+            
+            # Fetch data from Online Attendance API
+            success, message = self.online_attendance_service.sync_attendance_data(start_date_str, end_date_str)
+            
+            if success:
+                self.sync_status[device_name]['status'] = 'completed'
+                self.sync_status[device_name]['message'] = f"Online Attendance sync completed: {message}"
+                self.sync_status[device_name]['end_time'] = datetime.now()
+                # Extract number of records from message if possible
+                import re
+                match = re.search(r'Saved: (\d+)', message)
+                records_synced = int(match.group(1)) if match else 0
+                self.sync_status[device_name]['records_synced'] = records_synced
+                return True, message
+            else:
+                self.sync_status[device_name]['status'] = 'error'
+                self.sync_status[device_name]['message'] = f"Online Attendance sync failed: {message}"
+                self.sync_status[device_name]['end_time'] = datetime.now()
+                return False, message
+                
+        except Exception as e:
+            error_message = f"Online Attendance sync error: {str(e)}"
+            self.sync_status[device_name]['status'] = 'error'
+            self.sync_status[device_name]['message'] = error_message
+            self.sync_status[device_name]['end_time'] = datetime.now()
             return False, error_message
             self.sync_status[device_name]['status'] = 'error'
             self.sync_status[device_name]['message'] = message
