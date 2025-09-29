@@ -63,7 +63,14 @@ class AttendanceModel:
             print(f"Error getting FPLog data: {e}")
             return [], 0, 0
     
-    def execute_attrecord_procedure(self, start_date, end_date):
+    def execute_attrecord_procedure(self, start_date, end_date, pins=None):
+        """Execute attrecord stored procedure with optional PIN filtering"""
+        if pins:
+            return self.execute_attrecord_procedure_with_pins(start_date, end_date, pins)
+        else:
+            return self._execute_attrecord_procedure_original(start_date, end_date)
+    
+    def _execute_attrecord_procedure_original(self, start_date, end_date):
         """Execute the attrecord stored procedure"""
         try:
             conn = self.db_manager.get_sqlserver_connection()
@@ -83,7 +90,14 @@ class AttendanceModel:
         except Exception as e:
             return False, f"Error executing procedure: {str(e)}"
     
-    def execute_spjamkerja_procedure(self, start_date, end_date):
+    def execute_spjamkerja_procedure(self, start_date, end_date, pins=None):
+        """Execute spJamkerja stored procedure with optional PIN filtering"""
+        if pins:
+            return self.execute_spjamkerja_procedure_with_pins(start_date, end_date, pins)
+        else:
+            return self._execute_spjamkerja_procedure_original(start_date, end_date)
+    
+    def _execute_spjamkerja_procedure_original(self, start_date, end_date):
         """Execute the spJamkerja stored procedure"""
         try:
             conn = self.db_manager.get_sqlserver_connection()
@@ -99,6 +113,84 @@ class AttendanceModel:
             conn.close()
             
             return True, "Procedure executed successfully"
+            
+        except Exception as e:
+            return False, f"Error executing procedure: {str(e)}"
+
+    def execute_attrecord_procedure_with_pins(self, start_date, end_date, pins=None):
+        """Execute the attrecord stored procedure with date range and optional PIN list"""
+        try:
+            conn = self.db_manager.get_sqlserver_connection()
+            if not conn:
+                return False, "Failed to connect to SQL Server"
+            
+            cursor = conn.cursor()
+            
+            # Konversi list atau string PIN menjadi string yang dipisahkan koma
+            pins_str = None
+            if pins is not None:
+                if isinstance(pins, list):
+                    pins_str = ','.join(pins)
+                else:
+                    pins_str = pins
+            
+            # Jalankan prosedur dengan parameter tanggal dan PIN opsional
+            if pins_str:
+                query = "EXEC [dbo].[attrecord] ?, ?, ?"
+                cursor.execute(query, (start_date, end_date, pins_str))
+            else:
+                query = "EXEC [dbo].[attrecord] ?, ?"
+                cursor.execute(query, (start_date, end_date))
+            
+            conn.commit()
+            
+            cursor.close()
+            conn.close()
+            
+            if pins_str:
+                pin_count = len(pins_str.split(',')) if pins_str else 0
+                return True, f"Procedure executed successfully for {pin_count} PINs from {start_date} to {end_date}"
+            else:
+                return True, f"Procedure executed successfully for date range {start_date} to {end_date}"
+            
+        except Exception as e:
+            return False, f"Error executing procedure: {str(e)}"
+
+    def execute_spjamkerja_procedure_with_pins(self, start_date, end_date, pins=None):
+        """Execute the spJamkerja stored procedure with date range and optional PIN list"""
+        try:
+            conn = self.db_manager.get_sqlserver_connection()
+            if not conn:
+                return False, "Failed to connect to SQL Server"
+            
+            cursor = conn.cursor()
+            
+            # Konversi list atau string PIN menjadi string yang dipisahkan koma
+            pins_str = None
+            if pins is not None:
+                if isinstance(pins, list):
+                    pins_str = ','.join(pins)
+                else:
+                    pins_str = pins
+            
+            # Jalankan prosedur dengan parameter tanggal dan PIN opsional
+            if pins_str:
+                query = "EXEC [dbo].[spJamkerja] ?, ?, ?"
+                cursor.execute(query, (start_date, end_date, pins_str))
+            else:
+                query = "EXEC [dbo].[spJamkerja] ?, ?"
+                cursor.execute(query, (start_date, end_date))
+            
+            conn.commit()
+            
+            cursor.close()
+            conn.close()
+            
+            if pins_str:
+                pin_count = len(pins_str.split(',')) if pins_str else 0
+                return True, f"Procedure executed successfully for {pin_count} PINs from {start_date} to {end_date}"
+            else:
+                return True, f"Procedure executed successfully for date range {start_date} to {end_date}"
             
         except Exception as e:
             return False, f"Error executing procedure: {str(e)}"
@@ -290,7 +382,172 @@ class AttendanceModel:
             
         except Exception as e:
             return False, f"Error bulk adding to attendance queue: {str(e)}"
-    
+
+    def bulk_add_to_attendance_queue_if_not_duplicate(self, attendance_records):
+        """Bulk add attendance records to queue with duplicate check"""
+        try:
+            conn = self.db_manager.get_sqlserver_connection()
+            if not conn:
+                return False, "Database connection failed"
+            
+            cursor = conn.cursor()
+            
+            # Prepare batch for duplicate checking
+            non_duplicate_records = []
+            duplicate_count = 0
+            
+            for record in attendance_records:
+                # Validate and clean record data
+                pin = str(record.get('pin', '')) if record.get('pin') is not None else ''
+                date = record.get('date', '')
+                machine = record.get('machine', None)
+                
+                if not date or not pin:
+                    print(f"Warning: Invalid record data (empty pin or date), skipping")
+                    continue
+                
+                # Check for duplicate if machine is provided
+                if machine:
+                    machine = str(machine)
+                    
+                    # Check for duplicate: PIN, Date (down to minute), and Machine
+                    check_query = """
+                        SELECT COUNT(*) as count
+                        FROM attendance_queues
+                        WHERE pin = ? 
+                        AND CONVERT(varchar(16), date, 120) = CONVERT(varchar(16), ?, 120)
+                        AND machine = ?
+                    """
+                    
+                    cursor.execute(check_query, (pin, date, machine))
+                    result = cursor.fetchone()
+                    count = result[0] if result else 0
+                    
+                    if count > 0:
+                        duplicate_count += 1
+                        print(f"Duplicate found - skipping: PIN={pin}, Date={date}, Machine={machine}")
+                        continue
+                
+                # Record is not duplicate, prepare for insertion
+                punch_code = record.get('punch_code', None)
+                if punch_code is not None:
+                    try:
+                        punch_code = int(punch_code)
+                    except (ValueError, TypeError):
+                        print(f"Warning: Invalid punch_code '{punch_code}' in record, setting to None")
+                        punch_code = None
+                
+                status = str(record.get('status', 'baru'))
+                
+                non_duplicate_records.append((pin, date, status, machine, punch_code))
+            
+            # Insert non-duplicate records
+            inserted_count = 0
+            if non_duplicate_records:
+                insert_query = """
+                    INSERT INTO attendance_queues (pin, date, status, machine, punch_code)
+                    VALUES (?, ?, ?, ?, ?)
+                """
+                
+                cursor.executemany(insert_query, non_duplicate_records)
+                inserted_count = len(non_duplicate_records)  # Use actual count of records inserted
+                conn.commit()
+            
+            cursor.close()
+            conn.close()
+            
+            total_processed = len(attendance_records)
+            message = f"Processed {total_processed} records: {inserted_count} inserted, {duplicate_count} duplicates skipped"
+            
+            return True, message
+            
+        except Exception as e:
+            return False, f"Error bulk adding to attendance queue with duplicate check: {str(e)}"
+
+    def bulk_add_to_attendance_queue_enhanced(self, attendance_records):
+        """Enhanced bulk add method with robust duplicate checking using PIN, Date, Status, and Machine"""
+        try:
+            conn = self.db_manager.get_sqlserver_connection()
+            if not conn:
+                return False, "Database connection failed"
+            
+            cursor = conn.cursor()
+            
+            # Prepare batch for enhanced duplicate checking
+            non_duplicate_records = []
+            duplicate_count = 0
+            invalid_count = 0
+            
+            for record in attendance_records:
+                # Validate and clean record data
+                pin = str(record.get('pin', '')) if record.get('pin') is not None else ''
+                date = record.get('date', '')
+                status = str(record.get('status', 'baru'))
+                machine = record.get('machine', None)
+                
+                if not date or not pin:
+                    print(f"Warning: Invalid record data (empty pin or date), skipping")
+                    invalid_count += 1
+                    continue
+                
+                # Enhanced duplicate check using PIN, Date, Status, and Machine
+                if machine:
+                    machine = str(machine)
+                    
+                    # Enhanced check: PIN, Date (down to minute), Status, and Machine  
+                    check_query = """
+                        SELECT COUNT(*) as count
+                        FROM attendance_queues
+                        WHERE pin = ? 
+                        AND CONVERT(varchar(16), date, 120) = CONVERT(varchar(16), ?, 120)
+                        AND status = ?
+                        AND machine = ?
+                    """
+                    
+                    cursor.execute(check_query, (pin, date, status, machine))
+                    result = cursor.fetchone()
+                    count = result[0] if result else 0
+                    
+                    if count > 0:
+                        duplicate_count += 1
+                        print(f"Enhanced duplicate found - skipping: PIN={pin}, Date={date}, Status={status}, Machine={machine}")
+                        continue
+                
+                # Record is not duplicate, prepare for insertion
+                punch_code = record.get('punch_code', None)
+                if punch_code is not None:
+                    try:
+                        punch_code = int(punch_code)
+                    except (ValueError, TypeError):
+                        print(f"Warning: Invalid punch_code '{punch_code}' in record, setting to None")
+                        punch_code = None
+                
+                non_duplicate_records.append((pin, date, status, machine, punch_code))
+            
+            # Insert non-duplicate records
+            inserted_count = 0
+            if non_duplicate_records:
+                insert_query = """
+                    INSERT INTO attendance_queues (pin, date, status, machine, punch_code)
+                    VALUES (?, ?, ?, ?, ?)
+                """
+                
+                cursor.executemany(insert_query, non_duplicate_records)
+                # Use length of records instead of rowcount for SQL Server compatibility
+                inserted_count = len(non_duplicate_records)
+                conn.commit()
+            
+            cursor.close()
+            conn.close()
+            
+            total_processed = len(attendance_records)
+            message = f"Enhanced processing - Total: {total_processed}, Inserted: {inserted_count}, Duplicates: {duplicate_count}, Invalid: {invalid_count}"
+            
+            return True, message
+            
+        except Exception as e:
+            return False, f"Error in enhanced bulk add to attendance queue: {str(e)}"
+
     def get_attendance_logs(self, start_date=None, end_date=None, page=1, per_page=20):
         """Get attendance logs with pagination and optional date filtering"""
         try:
@@ -346,7 +603,7 @@ class AttendanceModel:
             print(f"Error getting attendance logs: {e}")
             return [], 0, 0
     
-    def get_attendance_queue(self, status=None, limit=100):
+    def get_attendance_queue(self, status=None, limit=None):
         """Get attendance records from queue"""
         try:
             conn = self.db_manager.get_sqlserver_connection()
@@ -366,15 +623,29 @@ class AttendanceModel:
                 query += " WHERE status = ?"
                 params.append(status)
             
-            query += " ORDER BY created_at ASC OFFSET 0 ROWS FETCH NEXT ? ROWS ONLY"
-            params.append(limit)
+            query += " ORDER BY created_at DESC"
+            
+            # Only add limit if specified
+            if limit is not None:
+                query += " OFFSET 0 ROWS FETCH NEXT ? ROWS ONLY"
+                params.append(limit)
             
             cursor.execute(query, params)
             rows = cursor.fetchall()
             
-            # Convert to dictionary manually
-            columns = [column[0] for column in cursor.description]
-            queue_records = [dict(zip(columns, row)) for row in rows]
+            # Convert to dictionary with proper column mapping
+            queue_records = []
+            for row in rows:
+                record = {
+                    'ID': row[0],           # id
+                    'PIN': row[1],          # pin  
+                    'Date': row[2],         # date
+                    'Status': row[3],       # status
+                    'Machine': row[4],      # machine
+                    'PunchCode': row[5],    # punch_code
+                    'CreatedAt': row[6]     # created_at
+                }
+                queue_records.append(record)
             
             cursor.close()
             conn.close()
@@ -665,7 +936,7 @@ class AttendanceModel:
             return False, f"Error adding FPLog record: {str(e)}"
     
     def check_attendance_queue_duplicate(self, pin, date, machine):
-        """Check if attendance_queue record already exists with same PIN, Date (down to minute), and Machine"""
+        """Check if attendance_queue record already exists with same PIN, Date (down to minute), and Machine (Legacy method)"""
         try:
             conn = self.db_manager.get_sqlserver_connection()
             if not conn:
@@ -693,9 +964,40 @@ class AttendanceModel:
             
         except Exception as e:
             return False, f"Error checking duplicate: {str(e)}"
+
+    def check_attendance_queue_duplicate_enhanced(self, pin, date, status, machine):
+        """Enhanced duplicate check using PIN, Date, Status, and Machine as keys"""
+        try:
+            conn = self.db_manager.get_sqlserver_connection()
+            if not conn:
+                return False, "Database connection failed"
+            
+            cursor = conn.cursor()
+            
+            # Check for exact match: PIN, Date (down to minute), Status, and Machine
+            check_query = """
+                SELECT COUNT(*) as count
+                FROM attendance_queues
+                WHERE pin = ? 
+                AND CONVERT(varchar(16), date, 120) = CONVERT(varchar(16), ?, 120)
+                AND status = ?
+                AND machine = ?
+            """
+            
+            cursor.execute(check_query, (str(pin), date, str(status), str(machine)))
+            result = cursor.fetchone()
+            count = result[0] if result else 0
+            
+            cursor.close()
+            conn.close()
+            
+            return count > 0, f"Found {count} existing records with PIN={pin}, Date={date}, Status={status}, Machine={machine}"
+            
+        except Exception as e:
+            return False, f"Error checking enhanced duplicate: {str(e)}"
     
     def add_to_attendance_queue_if_not_duplicate(self, pin, date, status='baru', machine=None, punch_code=None):
-        """Add attendance record to queue only if it's not a duplicate"""
+        """Add attendance record to queue only if it's not a duplicate (Legacy method)"""
         try:
             # Check for duplicate first if machine is provided
             if machine:
@@ -709,6 +1011,22 @@ class AttendanceModel:
             
         except Exception as e:
             return False, f"Error adding to attendance queue: {str(e)}"
+
+    def add_to_attendance_queue_enhanced(self, pin, date, status='baru', machine=None, punch_code=None):
+        """Enhanced method to add attendance record to queue with robust duplicate checking"""
+        try:
+            # Enhanced duplicate check using PIN, Date, Status, and Machine
+            if machine:
+                is_duplicate, message = self.check_attendance_queue_duplicate_enhanced(pin, date, status, machine)
+                
+                if is_duplicate:
+                    return False, f"Enhanced duplicate check - record not inserted: {message}"
+            
+            # Insert the record using existing method
+            return self.add_to_attendance_queue(pin, date, status, machine, punch_code)
+            
+        except Exception as e:
+            return False, f"Error adding to attendance queue (enhanced): {str(e)}"
     
     def get_failed_attendance_logs(self, start_date=None, end_date=None, page=1, per_page=50):
         """Get failed attendance logs from gagalabsens table with pagination"""
@@ -828,3 +1146,58 @@ class AttendanceModel:
         except Exception as e:
             print(f"Error getting failed attendance stats: {e}")
             return {}
+    
+    def get_pins_with_status_baru(self):
+        """Get unique PINs from attendance_queues with status 'baru'"""
+        try:
+            conn = self.db_manager.get_sqlserver_connection()
+            cursor = conn.cursor()
+            
+            cursor.execute("""
+                SELECT DISTINCT pin 
+                FROM attendance_queues 
+                WHERE status = 'baru'
+                ORDER BY pin
+            """)
+            
+            pins = [row[0] for row in cursor.fetchall()]
+            conn.close()
+            
+            print(f"Found {len(pins)} unique PINs with status 'baru'")
+            return pins
+            
+        except Exception as e:
+            print(f"Error getting PINs with status baru: {e}")
+            return []
+    
+    def get_attendance_queue_stats(self):
+        """Get attendance queue statistics"""
+        try:
+            conn = self.db_manager.get_sqlserver_connection()
+            cursor = conn.cursor()
+            
+            # Get total and status counts
+            cursor.execute("""
+                SELECT 
+                    COUNT(*) as total,
+                    SUM(CASE WHEN status = 'selesai' THEN 1 ELSE 0 END) as processed,
+                    SUM(CASE WHEN status = 'baru' THEN 1 ELSE 0 END) as baru,
+                    SUM(CASE WHEN status = 'error' THEN 1 ELSE 0 END) as error
+                FROM attendance_queues 
+                WHERE created_at >= DATEADD(day, -7, GETDATE())
+            """)
+            
+            result = cursor.fetchone()
+            stats = {
+                'total': result[0] or 0,
+                'processed': result[1] or 0,
+                'baru': result[2] or 0,
+                'error': result[3] or 0
+            }
+            
+            conn.close()
+            return stats
+            
+        except Exception as e:
+            print(f"Error getting attendance queue stats: {e}")
+            return {'total': 0, 'processed': 0, 'baru': 0, 'error': 0}

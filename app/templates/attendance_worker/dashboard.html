@@ -1,0 +1,810 @@
+{% extends "base.html" %}
+
+{% block title %}Attendance Worker Dashboard{% endblock %}
+
+{% block extra_css %}
+<style>
+.worker-dashboard {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+.dashboard-header {
+    margin-bottom: 2rem;
+}
+
+.dashboard-header h1 {
+    font-size: 1.75rem;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 0.5rem;
+}
+
+.dashboard-header p {
+    color: #666;
+    margin-bottom: 0;
+}
+
+.refresh-btn {
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    color: #495057;
+    font-size: 0.875rem;
+    padding: 0.375rem 0.75rem;
+    border-radius: 0.375rem;
+    transition: all 0.15s ease-in-out;
+}
+
+.refresh-btn:hover {
+    background: #e9ecef;
+    border-color: #adb5bd;
+}
+
+.status-card {
+    border: none;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    border-radius: 0.5rem;
+}
+
+.status-card .card-header {
+    background: #fff;
+    border-bottom: 1px solid #dee2e6;
+    padding: 1rem 1.25rem;
+    font-weight: 600;
+    color: #333;
+}
+
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.25rem 0.75rem;
+    border-radius: 1rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.status-badge.running {
+    background: #d4edda;
+    color: #155724;
+}
+
+.status-badge.stopped {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+.status-badge.inactive {
+    background: #f0f0f0;
+    color: #6c757d;
+}
+
+.control-buttons {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 1rem;
+}
+
+.control-buttons .btn {
+    flex: 1;
+    font-size: 0.875rem;
+    padding: 0.5rem 1rem;
+    border-radius: 0.375rem;
+    font-weight: 500;
+}
+
+.btn-start {
+    background: #28a745;
+    border-color: #28a745;
+    color: white;
+}
+
+.btn-start:hover {
+    background: #218838;
+    border-color: #1e7e34;
+}
+
+.btn-stop {
+    background: #dc3545;
+    border-color: #dc3545;
+    color: white;
+}
+
+.btn-stop:hover {
+    background: #c82333;
+    border-color: #bd2130;
+}
+
+.btn-run-now {
+    background: #ffc107;
+    border-color: #ffc107;
+    color: #212529;
+}
+
+.btn-run-now:hover {
+    background: #e0a800;
+    border-color: #d39e00;
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.stat-item {
+    background: #fff;
+    border: 1px solid #dee2e6;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    text-align: center;
+}
+
+.stat-value {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #007bff;
+    margin-bottom: 0.25rem;
+}
+
+.stat-label {
+    font-size: 0.875rem;
+    color: #6c757d;
+    margin: 0;
+}
+
+.activity-log {
+    background: #1e1e1e;
+    color: #fff;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 0.8rem;
+    padding: 1rem;
+    border-radius: 0.375rem;
+    height: 300px;
+    overflow-y: auto;
+    margin-bottom: 1rem;
+}
+
+.activity-log .log-entry {
+    margin-bottom: 0.25rem;
+    line-height: 1.4;
+}
+
+.activity-log .log-entry .timestamp {
+    color: #61dafb;
+}
+
+.activity-log .log-entry .message {
+    color: #fff;
+}
+
+.log-controls {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.log-controls .btn {
+    font-size: 0.75rem;
+    padding: 0.25rem 0.75rem;
+    border-radius: 0.25rem;
+}
+
+.loading-spinner {
+    display: none;
+    width: 1rem;
+    height: 1rem;
+    border: 2px solid #f3f3f3;
+    border-top: 2px solid #007bff;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-left: 0.5rem;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.status-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.status-row:last-child {
+    border-bottom: none;
+}
+
+.status-label {
+    font-weight: 500;
+    color: #333;
+}
+
+.status-value {
+    color: #666;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid worker-dashboard">
+    <!-- Dashboard Header -->
+    <div class="row dashboard-header">
+        <div class="col-md-8">
+            <h1>Attendance Worker Dashboard</h1>
+            <p>Monitor dan kelola worker untuk pemrosesan antrian absensi</p>
+        </div>
+        <div class="col-md-4 text-end">
+            <button class="btn refresh-btn" onclick="refreshDashboard()">
+                <i class="fas fa-sync-alt"></i> Refresh
+                <span class="loading-spinner" id="refreshSpinner"></span>
+            </button>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Status Worker Card -->
+        <div class="col-md-6 mb-4">
+            <div class="card status-card">
+                <div class="card-header">
+                    <i class="fas fa-cogs"></i> Status Worker
+                </div>
+                <div class="card-body">
+                    <div id="workerStatusContent">
+                        <div class="status-row">
+                            <span class="status-label">Status:</span>
+                            <span class="status-badge stopped" id="workerStatus">Berhenti</span>
+                        </div>
+                        <div class="status-row">
+                            <span class="status-label">Thread:</span>
+                            <span class="status-badge inactive" id="threadStatus">Tidak Aktif</span>
+                        </div>
+                        <div class="status-row">
+                            <span class="status-label">Jadwal:</span>
+                            <span class="status-value" id="scheduleInfo">Setiap 2 jam (0 jobs scheduled)</span>
+                        </div>
+                        <div class="status-row">
+                            <span class="status-label">Next Run:</span>
+                            <span class="status-value" id="nextRun">Belum ada jadwal</span>
+                        </div>
+                    </div>
+                    
+                    <div class="control-buttons">
+                        <button class="btn btn-start" onclick="startWorker()">
+                            <i class="fas fa-play"></i> Start
+                        </button>
+                        <button class="btn btn-stop" onclick="stopWorker()">
+                            <i class="fas fa-stop"></i> Stop
+                        </button>
+                        <button class="btn btn-run-now" onclick="runNow()">
+                            <i class="fas fa-bolt"></i> Run Now
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Statistik Antrian Card -->
+        <div class="col-md-6 mb-4">
+            <div class="card status-card">
+                <div class="card-header">
+                    <i class="fas fa-chart-bar"></i> Statistik Antrian
+                </div>
+                <div class="card-body">
+                    <div class="stats-grid">
+                        <div class="stat-item">
+                            <div class="stat-value" id="totalRecords">0</div>
+                            <p class="stat-label">Total Records</p>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-6">
+                            <div class="status-row">
+                                <span class="status-label">Baru:</span>
+                                <span class="status-value" id="baruCount">0</span>
+                            </div>
+                            <div class="status-row">
+                                <span class="status-label">Diproses:</span>
+                                <span class="status-value" id="diprosesCount">0</span>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="status-row">
+                                <span class="status-label">Selesai:</span>
+                                <span class="status-value" id="selesaiCount">0</span>
+                            </div>
+                            <div class="status-row">
+                                <span class="status-label">Error:</span>
+                                <span class="status-value" id="errorCount">0</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Activity Log -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card status-card">
+                <div class="card-header">
+                    <i class="fas fa-list"></i> Activity Log
+                </div>
+                <div class="card-body">
+                    <div class="activity-log" id="activityLog">
+                        <!-- Log entries will be populated here -->
+                    </div>
+                    <div class="log-controls">
+                        <button class="btn btn-outline-secondary" onclick="clearActivityLog()">
+                            <i class="fas fa-trash"></i> Clear Log
+                        </button>
+                        <button class="btn btn-outline-primary" onclick="downloadLog()">
+                            <i class="fas fa-download"></i> Download Log
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Toast Container -->
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index: 11">
+    <div id="liveToast" class="toast hide" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="toast-header">
+            <strong class="me-auto" id="toastTitle">Worker Dashboard</strong>
+            <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+        <div class="toast-body" id="toastMessage">
+            <!-- Toast message will be populated here -->
+        </div>
+    </div>
+</div>
+
+<!-- Date Range Modal for Run Now -->
+<div class="modal fade" id="dateRangeModal" tabindex="-1" aria-labelledby="dateRangeModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="dateRangeModalLabel">
+                    <i class="fas fa-calendar-alt"></i> Pilih Rentang Tanggal untuk Run Now
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="dateRangeForm">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i>
+                        <strong>Info:</strong> Pilih rentang tanggal untuk memproses data absensi yang spesifik. Kosongkan untuk memproses semua data yang tersedia.
+                    </div>
+                    
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label for="runNowStartDate" class="form-label">
+                                <i class="fas fa-calendar"></i> Tanggal Mulai
+                            </label>
+                            <input type="date" class="form-control" id="runNowStartDate" name="start_date">
+                            <div class="form-text">Kosongkan untuk memproses dari awal</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="runNowEndDate" class="form-label">
+                                <i class="fas fa-calendar"></i> Tanggal Akhir  
+                            </label>
+                            <input type="date" class="form-control" id="runNowEndDate" name="end_date">
+                            <div class="form-text">Kosongkan untuk memproses sampai akhir</div>
+                        </div>
+                    </div>
+                    
+                    <div class="row g-3 mt-2">
+                        <div class="col-12">
+                            <label for="runNowPins" class="form-label">
+                                <i class="fas fa-users"></i> Filter PIN Karyawan
+                            </label>
+                            <textarea class="form-control" id="runNowPins" name="pins" rows="3" 
+                                placeholder="Masukkan PIN karyawan yang ingin diproses, pisahkan dengan koma atau enter&#10;Contoh: 001, 002, 003&#10;atau&#10;001&#10;002&#10;003"></textarea>
+                            <div class="form-text">
+                                <i class="fas fa-info-circle"></i> 
+                                Kosongkan untuk memproses semua PIN. Gunakan koma (,) atau enter untuk memisahkan multiple PIN.
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="processAllData">
+                            <label class="form-check-label" for="processAllData">
+                                <strong>Proses semua data yang tersedia</strong>
+                            </label>
+                            <div class="form-text">Jika dicentang, akan memproses semua data tanpa filter tanggal</div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times"></i> Batal
+                </button>
+                <button type="button" class="btn btn-warning" onclick="executeRunNow()">
+                    <i class="fas fa-bolt"></i> <span id="runNowBtnText">Jalankan Sekarang</span>
+                    <span class="spinner-border spinner-border-sm ms-2" id="runNowSpinner" style="display: none;"></span>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Auto refresh interval (30 seconds)
+let autoRefreshInterval;
+let isRefreshing = false;
+
+// Initialize dashboard
+document.addEventListener('DOMContentLoaded', function() {
+    loadWorkerStatus();
+    loadQueueStatistics();
+    loadActivityLog();
+    
+    // Start auto refresh
+    startAutoRefresh();
+    
+    // Event handler untuk checkbox process all data
+    const processAllDataCheckbox = document.getElementById('processAllData');
+    const startDateInput = document.getElementById('runNowStartDate');
+    const endDateInput = document.getElementById('runNowEndDate');
+    
+    processAllDataCheckbox.addEventListener('change', function() {
+        const isChecked = this.checked;
+        startDateInput.disabled = isChecked;
+        endDateInput.disabled = isChecked;
+        
+        if (isChecked) {
+            startDateInput.value = '';
+            endDateInput.value = '';
+        }
+    });
+});
+
+function startAutoRefresh() {
+    autoRefreshInterval = setInterval(() => {
+        if (!isRefreshing) {
+            refreshDashboard();
+        }
+    }, 30000); // 30 seconds
+}
+
+function stopAutoRefresh() {
+    if (autoRefreshInterval) {
+        clearInterval(autoRefreshInterval);
+    }
+}
+
+function refreshDashboard() {
+    if (isRefreshing) return;
+    
+    isRefreshing = true;
+    const spinner = document.getElementById('refreshSpinner');
+    spinner.style.display = 'inline-block';
+    
+    Promise.all([
+        loadWorkerStatus(),
+        loadQueueStatistics(),
+        loadActivityLog()
+    ]).finally(() => {
+        isRefreshing = false;
+        spinner.style.display = 'none';
+    });
+}
+
+async function loadWorkerStatus() {
+    try {
+        const response = await fetch('/attendance-worker/api/status');
+        const data = await response.json();
+        
+        if (data.success) {
+            updateWorkerStatusUI(data.worker_status);
+        } else {
+            showToast('Error', data.message || 'Failed to load worker status', 'error');
+        }
+    } catch (error) {
+        console.error('Error loading worker status:', error);
+        showToast('Error', 'Failed to load worker status', 'error');
+    }
+}
+
+async function loadQueueStatistics() {
+    try {
+        const response = await fetch('/attendance-worker/api/statistics');
+        const data = await response.json();
+        
+        if (data.success) {
+            updateQueueStatisticsUI(data.statistics);
+        } else {
+            showToast('Error', data.message || 'Failed to load queue statistics', 'error');
+        }
+    } catch (error) {
+        console.error('Error loading queue statistics:', error);
+        showToast('Error', 'Failed to load queue statistics', 'error');
+    }
+}
+
+async function loadActivityLog() {
+    try {
+        const response = await fetch('/attendance-worker/api/activity-log');
+        const data = await response.json();
+        
+        if (data.success) {
+            updateActivityLogUI(data.activity_log);
+        } else {
+            showToast('Error', data.message || 'Failed to load activity log', 'error');
+        }
+    } catch (error) {
+        console.error('Error loading activity log:', error);
+        showToast('Error', 'Failed to load activity log', 'error');
+    }
+}
+
+function updateWorkerStatusUI(status) {
+    // Update status badge
+    const statusElement = document.getElementById('workerStatus');
+    const threadElement = document.getElementById('threadStatus');
+    
+    if (status.is_running) {
+        statusElement.textContent = 'Berjalan';
+        statusElement.className = 'status-badge running';
+    } else {
+        statusElement.textContent = 'Berhenti';
+        statusElement.className = 'status-badge stopped';
+    }
+    
+    if (status.thread_alive) {
+        threadElement.textContent = 'Aktif';
+        threadElement.className = 'status-badge running';
+    } else {
+        threadElement.textContent = 'Tidak Aktif';
+        threadElement.className = 'status-badge inactive';
+    }
+    
+    // Update other status info
+    document.getElementById('scheduleInfo').textContent = status.schedule_info || 'Setiap 2 jam (0 jobs scheduled)';
+    document.getElementById('nextRun').textContent = status.next_run || 'Belum ada jadwal';
+}
+
+function updateQueueStatisticsUI(stats) {
+    document.getElementById('totalRecords').textContent = stats.total_records || 0;
+    document.getElementById('baruCount').textContent = stats.status_counts?.baru || 0;
+    document.getElementById('diprosesCount').textContent = stats.status_counts?.diproses || 0;
+    document.getElementById('selesaiCount').textContent = stats.status_counts?.selesai || 0;
+    document.getElementById('errorCount').textContent = stats.status_counts?.error || 0;
+}
+
+function updateActivityLogUI(logEntries) {
+    const logContainer = document.getElementById('activityLog');
+    
+    if (!logEntries || logEntries.length === 0) {
+        logContainer.innerHTML = '<div class="log-entry"><span class="message">No activity logs available</span></div>';
+        return;
+    }
+    
+    let logHTML = '';
+    logEntries.forEach(entry => {
+        logHTML += `<div class="log-entry"><span class="message">${entry}</span></div>`;
+    });
+    
+    logContainer.innerHTML = logHTML;
+    
+    // Auto scroll to bottom
+    logContainer.scrollTop = logContainer.scrollHeight;
+}
+
+async function startWorker() {
+    try {
+        const response = await fetch('/attendance-worker/api/start', {
+            method: 'POST'
+        });
+        const data = await response.json();
+        
+        if (data.success) {
+            showToast('Success', data.message, 'success');
+            setTimeout(() => loadWorkerStatus(), 1000);
+        } else {
+            showToast('Error', data.message, 'error');
+        }
+    } catch (error) {
+        console.error('Error starting worker:', error);
+        showToast('Error', 'Failed to start worker', 'error');
+    }
+}
+
+async function stopWorker() {
+    if (!confirm('Are you sure you want to stop the worker?')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch('/attendance-worker/api/stop', {
+            method: 'POST'
+        });
+        const data = await response.json();
+        
+        if (data.success) {
+            showToast('Success', data.message, 'success');
+            setTimeout(() => loadWorkerStatus(), 1000);
+        } else {
+            showToast('Error', data.message, 'error');
+        }
+    } catch (error) {
+        console.error('Error stopping worker:', error);
+        showToast('Error', 'Failed to stop worker', 'error');
+    }
+}
+
+function runNow() {
+    // Set default tanggal hari ini
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('runNowStartDate').value = today;
+    document.getElementById('runNowEndDate').value = today;
+    
+    // Show modal
+    const modal = new bootstrap.Modal(document.getElementById('dateRangeModal'));
+    modal.show();
+}
+
+async function executeRunNow() {
+    const startDate = document.getElementById('runNowStartDate').value;
+    const endDate = document.getElementById('runNowEndDate').value;
+    const pinsInput = document.getElementById('runNowPins').value;
+    const processAllData = document.getElementById('processAllData').checked;
+    
+    // Validate date range
+    if (startDate && endDate && startDate > endDate) {
+        showToast('Error', 'Tanggal mulai tidak boleh lebih besar dari tanggal akhir', 'error');
+        return;
+    }
+    
+    // Process PINs input
+    let pins = [];
+    if (pinsInput.trim()) {
+        // Split by comma or newline and clean up
+        pins = pinsInput.split(/[,\n]/)
+            .map(pin => pin.trim())
+            .filter(pin => pin.length > 0);
+        
+        // Validate PINs
+        const invalidPins = pins.filter(pin => !/^\d+$/.test(pin));
+        if (invalidPins.length > 0) {
+            showToast('Error', `PIN tidak valid: ${invalidPins.join(', ')}. PIN harus berupa angka.`, 'error');
+            return;
+        }
+    }
+    
+    // Show loading
+    const spinner = document.getElementById('runNowSpinner');
+    const btnText = document.getElementById('runNowBtnText');
+    spinner.style.display = 'inline-block';
+    btnText.textContent = 'Memproses...';
+    
+    try {
+        const payload = {};
+        
+        // Jika tidak process all data dan ada tanggal yang dipilih
+        if (!processAllData && (startDate || endDate)) {
+            if (startDate) payload.start_date = startDate;
+            if (endDate) payload.end_date = endDate;
+        }
+        
+        // Add PINs filter if provided
+        if (pins.length > 0) {
+            payload.pins = pins;
+        }
+        
+        const response = await fetch('/attendance-worker/api/run-now', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(payload)
+        });
+        const data = await response.json();
+        
+        if (data.success) {
+            let message = data.message;
+            if (pins.length > 0) {
+                message += ` untuk ${pins.length} PIN: ${pins.slice(0,3).join(', ')}${pins.length > 3 ? '...' : ''}`;
+            }
+            showToast('Success', message, 'success');
+            
+            // Hide modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('dateRangeModal'));
+            modal.hide();
+            
+            setTimeout(() => {
+                loadActivityLog();
+                loadQueueStatistics();
+            }, 1000);
+        } else {
+            showToast('Error', data.message, 'error');
+        }
+    } catch (error) {
+        console.error('Error running worker now:', error);
+        showToast('Error', 'Failed to run worker now', 'error');
+    } finally {
+        // Hide loading
+        spinner.style.display = 'none';
+        btnText.textContent = 'Jalankan Sekarang';
+    }
+}
+
+async function clearActivityLog() {
+    if (!confirm('Are you sure you want to clear the activity log?')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch('/attendance-worker/api/clear-log', {
+            method: 'POST'
+        });
+        const data = await response.json();
+        
+        if (data.success) {
+            showToast('Success', data.message, 'success');
+            loadActivityLog();
+        } else {
+            showToast('Error', data.message, 'error');
+        }
+    } catch (error) {
+        console.error('Error clearing activity log:', error);
+        showToast('Error', 'Failed to clear activity log', 'error');
+    }
+}
+
+async function downloadLog() {
+    try {
+        const response = await fetch('/attendance-worker/api/download-log');
+        const data = await response.json();
+        
+        showToast('Info', data.message, 'info');
+    } catch (error) {
+        console.error('Error downloading log:', error);
+        showToast('Error', 'Failed to download log', 'error');
+    }
+}
+
+function showToast(title, message, type = 'info') {
+    const toast = document.getElementById('liveToast');
+    const toastTitle = document.getElementById('toastTitle');
+    const toastMessage = document.getElementById('toastMessage');
+    
+    toastTitle.textContent = title;
+    toastMessage.textContent = message;
+    
+    // Update toast color based on type
+    toast.className = 'toast show';
+    if (type === 'error') {
+        toast.classList.add('bg-danger', 'text-white');
+    } else if (type === 'success') {
+        toast.classList.add('bg-success', 'text-white');
+    } else if (type === 'warning') {
+        toast.classList.add('bg-warning');
+    } else {
+        toast.classList.add('bg-info', 'text-white');
+    }
+    
+    // Auto hide after 5 seconds
+    setTimeout(() => {
+        toast.classList.remove('show');
+        toast.classList.add('hide');
+    }, 5000);
+}
+
+// Cleanup on page unload
+window.addEventListener('beforeunload', () => {
+    stopAutoRefresh();
+});
+</script>
+{% endblock %}

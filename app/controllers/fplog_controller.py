@@ -46,8 +46,8 @@ class FPLogController:
             
             # Remove empty filters
             filters = {k: v for k, v in filters.items() if v != ''}
-            print(f"🔍 FPLog Export - Processed filters: {filters}")
-            print(f"🔍 FPLog Export - Processed filters: {filters}")
+            print(f"FPLog Export - Processed filters: {filters}")
+            print(f"FPLog Export - Processed filters: {filters}")
             
             success, message, fplog_data = self.fplog_service.search_fplog_data(filters)
             
@@ -74,8 +74,8 @@ class FPLogController:
         """Export FPLog data to Excel"""
         try:
             data = request.get_json() or {}
-            print(f"🔍 FPLog Export - Received filters: {data}")
-            print(f"🔍 FPLog Export - Received filters: {data}")
+            print(f"FPLog Export - Received filters: {data}")
+            print(f"FPLog Export - Received filters: {data}")
             
             filters = {
                 'pin': data.get('pin', '').strip(),

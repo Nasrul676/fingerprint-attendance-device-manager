@@ -21,6 +21,19 @@ class AttendanceWorker:
         self.attendance_model = AttendanceModel()
         self.is_running = False
         self._stop_event = threading.Event()
+        self.activity_callback = None  # Callback function untuk activity log
+    
+    def set_activity_callback(self, callback):
+        """Set callback function untuk activity log"""
+        self.activity_callback = callback
+    
+    def _log_activity(self, message, level='INFO'):
+        """Log activity ke callback jika tersedia"""
+        if self.activity_callback:
+            try:
+                self.activity_callback(message, level)
+            except Exception as e:
+                logger.error(f"Error in activity callback: {str(e)}")
         
     def process_attendance_queue(self):
         """Memproses antrian absensi dengan status 'baru'"""
@@ -28,7 +41,7 @@ class AttendanceWorker:
             logger.info("[WORKER] Memulai pemrosesan antrian absensi...")
             
             # Ambil data dari antrian dengan status 'baru'
-            queue_records = self.attendance_model.get_attendance_queue(status='baru', limit=5000)
+            queue_records = self.attendance_model.get_attendance_queue(status='baru')
             
             if not queue_records:
                 logger.info("[WORKER] Tidak ada data dengan status 'baru' dalam antrian")
@@ -74,9 +87,10 @@ class AttendanceWorker:
         date_groups = defaultdict(list)
         
         for record in records:
-            # Ambil tanggal saja (tanpa waktu)
-            if record['date']:
-                date_str = record['date'].strftime('%Y-%m-%d')
+            # Ambil tanggal saja (tanpa waktu) - use uppercase Date key from model
+            record_date = record.get('Date') or record.get('date')
+            if record_date:
+                date_str = record_date.strftime('%Y-%m-%d')
                 date_groups[date_str].append(record)
         
         return date_groups
@@ -116,9 +130,11 @@ class AttendanceWorker:
         """Update status untuk semua record dalam kelompok"""
         try:
             for record in records:
-                success, message = self.attendance_model.update_queue_status(record['id'], new_status)
+                # Use uppercase ID key from model
+                record_id = record.get('ID') or record.get('id')
+                success, message = self.attendance_model.update_queue_status(record_id, new_status)
                 if not success:
-                    logger.warning(f"[WARNING] Gagal update status record {record['id']}: {message}")
+                    logger.warning(f"[WARNING] Gagal update status record {record_id}: {message}")
                     
         except Exception as e:
             logger.error(f"[ERROR] Error update status: {str(e)}")
@@ -132,8 +148,8 @@ class AttendanceWorker:
         self.is_running = True
         logger.info("[START] Memulai Attendance Worker...")
         
-        # Schedule job untuk berjalan setiap hari jam 11 malam (23:00)
-        schedule.every().day.at("23:00").do(self._process_attendance_queue_safe)
+        # Schedule job untuk berjalan setiap 1 jam
+        schedule.every().hour.do(self._process_attendance_queue_safe)
         
         # Jalankan sekali saat startup dalam thread terpisah
         logger.info("[INIT] Menjalankan pemrosesan pertama kali...")
@@ -160,6 +176,151 @@ class AttendanceWorker:
         
         logger.info("[STOP] Attendance Worker dihentikan")
     
+    def process_attendance_queue_with_filters(self, start_date=None, end_date=None, pins_filter=None):
+        """Memproses antrian absensi dengan filter tanggal dan PINs"""
+        result = {
+            'success': False,
+            'total_processed': 0,
+            'successful': 0,
+            'failed': 0,
+            'summary': '',
+            'processing_time': 0.0
+        }
+        
+        start_time = time.time()
+        
+        try:
+            # Build filter info untuk logging
+            filter_parts = []
+            if start_date and end_date:
+                filter_parts.append(f"Tanggal: {start_date} - {end_date}")
+            elif start_date:
+                filter_parts.append(f"Tanggal: {start_date} ke atas")
+            elif end_date:
+                filter_parts.append(f"Tanggal: sampai {end_date}")
+            
+            if pins_filter:
+                pins_preview = pins_filter[:3] + (['...'] if len(pins_filter) > 3 else [])
+                filter_parts.append(f"PINs: {', '.join(map(str, pins_preview))} ({len(pins_filter)} total)")
+            
+            filter_info = f" dengan filter {'; '.join(filter_parts)}" if filter_parts else ""
+            
+            logger.info(f"[WORKER] Memulai pemrosesan antrian absensi{filter_info}")
+            self._log_activity(f"🚀 Memulai pemrosesan antrian{filter_info}...", 'INFO')
+            
+            # Ambil data dari antrian dengan status 'baru'
+            queue_records = self.attendance_model.get_attendance_queue(status='baru')
+            original_count = len(queue_records)
+            result['total_processed'] = original_count
+            
+            if not queue_records:
+                logger.info("[WORKER] Tidak ada data dengan status 'baru' dalam antrian")
+                self._log_activity("💭 Tidak ada data baru untuk diproses", 'INFO')
+                result['success'] = True
+                result['summary'] = "Tidak ada data untuk diproses"
+                return result
+            
+            logger.info(f"[WORKER] Ditemukan {len(queue_records)} record dengan status 'baru'")
+            self._log_activity(f"📊 Ditemukan {len(queue_records)} record dalam antrian", 'INFO')
+            
+            # Apply date filtering if specified
+            if start_date or end_date:
+                filtered_records = []
+                for record in queue_records:
+                    record_date = record.get('Date') or record.get('date')
+                    if record_date:
+                        record_date_str = record_date.strftime('%Y-%m-%d')
+                        
+                        # Check date range
+                        if start_date and record_date_str < start_date:
+                            continue
+                        if end_date and record_date_str > end_date:
+                            continue
+                        
+                        filtered_records.append(record)
+                
+                queue_records = filtered_records
+                logger.info(f"[WORKER] Setelah filter tanggal: {len(queue_records)} record")
+                self._log_activity(f"📅 Setelah filter tanggal: {len(queue_records)} record", 'INFO')
+            
+            # Apply PINs filtering if specified
+            if pins_filter:
+                filtered_records = []
+                for record in queue_records:
+                    record_pin = str(record.get('PIN', ''))
+                    if record_pin in pins_filter:
+                        filtered_records.append(record)
+                
+                queue_records = filtered_records
+                logger.info(f"[WORKER] Setelah filter PINs: {len(queue_records)} record")
+                self._log_activity(f"👥 Setelah filter PINs: {len(queue_records)} record", 'INFO')
+            
+            if not queue_records:
+                logger.info("[WORKER] Tidak ada data yang cocok dengan filter")
+                self._log_activity("💭 Tidak ada data yang cocok dengan filter", 'INFO')
+                result['success'] = True
+                result['summary'] = "Tidak ada data yang cocok dengan filter"
+                return result
+            
+            # Process the filtered records
+            date_groups = self._group_by_date(queue_records)
+            successful_dates = 0
+            failed_dates = 0
+            
+            for date_str, records in date_groups.items():
+                try:
+                    logger.info(f"[WORKER] Memproses tanggal: {date_str} ({len(records)} records)")
+                    self._log_activity(f"📝 Memproses {date_str}: {len(records)} records", 'INFO')
+                    
+                    # Update status to 'diproses'
+                    self._update_records_status(records, 'diproses')
+                    
+                    # Extract unique PINs for this date
+                    pins = list(set([str(record.get('PIN', '')) for record in records]))
+                    
+                    # Execute procedures with PIN filter
+                    success_attrecord, msg_attrecord = self.attendance_model.execute_attrecord_procedure(date_str, date_str, pins=pins)
+                    success_spjamkerja, msg_spjamkerja = self.attendance_model.execute_spjamkerja_procedure(date_str, date_str, pins=pins)
+                    
+                    if success_attrecord and success_spjamkerja:
+                        # Update status to 'selesai'
+                        self._update_records_status(records, 'selesai')
+                        successful_dates += 1
+                        self._log_activity(f"✅ Berhasil: {date_str}", 'INFO')
+                    else:
+                        # Update status back to 'baru' for retry
+                        self._update_records_status(records, 'baru')
+                        failed_dates += 1
+                        error_msg = f"Gagal {date_str}: {msg_attrecord or msg_spjamkerja}"
+                        self._log_activity(f"❌ {error_msg}", 'ERROR')
+                        
+                except Exception as e:
+                    failed_dates += 1
+                    error_msg = f"Error processing {date_str}: {str(e)}"
+                    logger.error(f"[WORKER] {error_msg}")
+                    self._log_activity(f"❌ Error {date_str}: {str(e)}", 'ERROR')
+            
+            # Update result
+            result['successful'] = successful_dates
+            result['failed'] = failed_dates
+            result['success'] = failed_dates == 0
+            result['processing_time'] = time.time() - start_time
+            result['summary'] = f"Berhasil: {successful_dates}, Gagal: {failed_dates}"
+            
+            # Log final result
+            self._log_activity(f"✅ Selesai! Berhasil: {successful_dates}, Gagal: {failed_dates}", 'INFO')
+            logger.info(f"[WORKER] Pemrosesan selesai. Berhasil: {successful_dates}, Gagal: {failed_dates}")
+            
+            return result
+            
+        except Exception as e:
+            result['processing_time'] = time.time() - start_time
+            result['summary'] = f"Error: {str(e)}"
+            error_msg = f"❌ Error dalam pemrosesan: {str(e)}"
+            self._log_activity(error_msg, 'ERROR')
+            logger.error(f"[WORKER] {error_msg}")
+            return result
+    
     def _process_attendance_queue_safe(self):
         """Wrapper untuk process_attendance_queue dengan error handling yang aman"""
         try:
@@ -183,13 +344,13 @@ class AttendanceWorker:
             'is_running': self.is_running,
             'next_run': schedule.next_run() if schedule.jobs else None,
             'queue_stats': queue_stats,
-            'schedule_info': f"Setiap 30 menit ({len(schedule.jobs)} jobs scheduled)"
+            'schedule_info': f"Setiap 1 jam ({len(schedule.jobs)} jobs scheduled)"
         }
     
     def _get_queue_stats(self):
         """Mendapatkan statistik antrian"""
         try:
-            all_records = self.attendance_model.get_attendance_queue(limit=10000)
+            all_records = self.attendance_model.get_attendance_queue()
             
             stats = {
                 'total': len(all_records),
@@ -198,12 +359,12 @@ class AttendanceWorker:
             }
             
             for record in all_records:
-                status = record['status']
+                status = record['Status']
                 stats['by_status'][status] = stats['by_status'].get(status, 0) + 1
                 
                 # Kumpulkan tanggal untuk status 'baru' (yang akan diproses)
-                if status == 'baru' and record['date']:
-                    date_str = record['date'].strftime('%Y-%m-%d')
+                if status == 'baru' and record['Date']:
+                    date_str = record['Date'].strftime('%Y-%m-%d')
                     if date_str not in stats['baru_dates']:
                         stats['baru_dates'].append(date_str)
             

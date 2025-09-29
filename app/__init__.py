@@ -1,6 +1,7 @@
 from flask import Flask, jsonify
 from flask_toastr import Toastr
 from config.config import config
+from config.logging_config import disable_other_loggers
 import os
 import logging
 from logging.handlers import RotatingFileHandler
@@ -13,12 +14,15 @@ def create_app(config_name=None):
     app = Flask(__name__)
     app.config.from_object(config[config_name])
     
+    # Disable problematic loggers early to prevent conflicts
+    disable_other_loggers()
+    
     # Validate production configuration
     if config_name == 'production':
         try:
             config['production'].validate_config()
         except EnvironmentError as e:
-            print(f"❌ Production configuration error: {e}")
+            print(f"Production configuration error: {e}")
             exit(1)
     
     # Initialize Flask-Toastr
@@ -73,8 +77,7 @@ def create_app(config_name=None):
         })
     
     # Register blueprints
-    from app.routes import main_bp, api_bp, sync_bp, fplog_bp, failed_logs_bp, job_bp
-    from app.controllers.worker_controller import worker_bp
+    from app.routes import main_bp, api_bp, sync_bp, fplog_bp, failed_logs_bp, job_bp, attendance_worker_bp
     from app.controllers.attendance_report_controller import attendance_report_bp
     
     app.register_blueprint(main_bp)
@@ -82,9 +85,9 @@ def create_app(config_name=None):
     app.register_blueprint(sync_bp, url_prefix='/sync')
     app.register_blueprint(fplog_bp, url_prefix='/fplog')
     app.register_blueprint(failed_logs_bp, url_prefix='/failed-logs')
-    app.register_blueprint(worker_bp)  # Worker blueprint sudah ada prefix /worker di controller
     app.register_blueprint(attendance_report_bp)
     app.register_blueprint(job_bp)  # Remove url_prefix since it's already defined in routes.py
+    app.register_blueprint(attendance_worker_bp)  # Attendance worker dashboard
     
     # Initialize job service worker
     from app.services.job_service import job_service

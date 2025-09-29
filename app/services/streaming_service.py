@@ -392,7 +392,7 @@ class StreamingService:
                     # Convert timestamp to string format for queue
                     timestamp_str = timestamp.strftime('%Y-%m-%d %H:%M:%S') if isinstance(timestamp, datetime) else str(timestamp)
                     
-                    queue_success, queue_message = self.attendance_model.add_to_attendance_queue_if_not_duplicate(
+                    queue_success, queue_message = self.attendance_model.add_to_attendance_queue_enhanced(
                         pin=pin,
                         date=timestamp_str,
                         status='baru',  # Queue status for ZK devices
@@ -483,7 +483,7 @@ class StreamingService:
                             logger.warning(f"   -> [{device_name}] Invalid punch code '{attendance.punch}', setting to None")
                             punch_code_for_queue = None
                     
-                    queue_success, queue_message = self.attendance_model.add_to_attendance_queue_if_not_duplicate(
+                    queue_success, queue_message = self.attendance_model.add_to_attendance_queue_enhanced(
                         pin=pin,
                         date=timestamp_str,
                         status='baru',  # Different status for API devices

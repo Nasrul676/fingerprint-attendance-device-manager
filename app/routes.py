@@ -4,8 +4,8 @@ from app.controllers.api_controller import APIController
 from app.controllers.sync_controller import SyncController
 from app.controllers.fplog_controller import FPLogController
 from app.controllers.failed_log_controller import FailedLogController
-from app.controllers.worker_controller import worker_bp
 from app.controllers.job_controller import job_controller
+from app.controllers.attendance_worker_controller import attendance_worker_controller
 
 # Create blueprints
 main_bp = Blueprint('main', __name__)
@@ -14,6 +14,7 @@ sync_bp = Blueprint('sync', __name__, url_prefix='/sync')
 fplog_bp = Blueprint('fplog', __name__, url_prefix='/fplog')
 failed_logs_bp = Blueprint('failed_logs', __name__, url_prefix='/failed-logs')
 job_bp = Blueprint('job', __name__, url_prefix='/job')
+attendance_worker_bp = Blueprint('attendance_worker', __name__, url_prefix='/attendance-worker')
 
 # Initialize controllers
 main_controller = MainController()
@@ -251,3 +252,40 @@ def get_worker_status():
 @job_bp.route('/test-job', methods=['POST'])
 def create_test_job():
     return job_controller.create_test_job()
+
+# Attendance Worker routes
+@attendance_worker_bp.route('/')
+def attendance_worker_dashboard():
+    return attendance_worker_controller.dashboard()
+
+@attendance_worker_bp.route('/api/status')
+def get_attendance_worker_status():
+    return attendance_worker_controller.get_worker_status()
+
+@attendance_worker_bp.route('/api/statistics')
+def get_attendance_queue_statistics():
+    return attendance_worker_controller.get_queue_statistics()
+
+@attendance_worker_bp.route('/api/start', methods=['POST'])
+def start_attendance_worker():
+    return attendance_worker_controller.start_worker()
+
+@attendance_worker_bp.route('/api/stop', methods=['POST'])
+def stop_attendance_worker():
+    return attendance_worker_controller.stop_worker()
+
+@attendance_worker_bp.route('/api/run-now', methods=['POST'])
+def run_attendance_worker_now():
+    return attendance_worker_controller.run_now()
+
+@attendance_worker_bp.route('/api/activity-log')
+def get_attendance_worker_activity_log():
+    return attendance_worker_controller.get_activity_log()
+
+@attendance_worker_bp.route('/api/clear-log', methods=['POST'])
+def clear_attendance_worker_activity_log():
+    return attendance_worker_controller.clear_activity_log()
+
+@attendance_worker_bp.route('/api/download-log')
+def download_attendance_worker_log():
+    return attendance_worker_controller.download_log()

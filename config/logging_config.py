@@ -9,63 +9,36 @@ import sys
 from logging.handlers import RotatingFileHandler
 
 
-class UnicodeStreamHandler(logging.StreamHandler):
+class SafeStreamHandler(logging.StreamHandler):
     """
-    Custom stream handler that properly handles Unicode on Windows
+    Safe stream handler that avoids encoding issues completely
     """
     def __init__(self, stream=None):
+        if stream is None:
+            stream = sys.stdout
         super().__init__(stream)
         
     def emit(self, record):
         try:
             msg = self.format(record)
-            stream = self.stream
             
-            # Handle Windows console encoding issues
-            if hasattr(stream, 'encoding') and stream.encoding:
-                # Try to encode with the stream's encoding
-                try:
-                    msg.encode(stream.encoding)
-                except UnicodeEncodeError:
-                    # Replace problematic characters with ASCII equivalents
-                    msg = self._replace_unicode_chars(msg)
+            # Ensure we have a string
+            if isinstance(msg, bytes):
+                msg = msg.decode('utf-8', errors='replace')
+            elif not isinstance(msg, str):
+                msg = str(msg)
             
-            stream.write(msg + self.terminator)
-            self.flush()
+            # Use print instead of direct stream.write to avoid encoding issues
+            print(msg, file=self.stream, flush=True)
             
         except Exception:
+            # Use handleError to prevent infinite recursion
             self.handleError(record)
-    
-    def _replace_unicode_chars(self, text):
-        """Replace Unicode emojis with ASCII equivalents"""
-        replacements = {
-            '🛑': '[STOP]',
-            '📅': '[DATE]',
-            '🔄': '[PROC]',
-            '✅': '[OK]',
-            '❌': '[ERR]',
-            '⚠️': '[WARN]',
-            '🚀': '[START]',
-            '💾': '[SAVE]',
-            '🔍': '[SEARCH]',
-            '📊': '[STATS]',
-            '🏃': '[RUN]',
-            '⏰': '[TIME]',
-            '📝': '[LOG]',
-            '🔧': '[CONFIG]',
-            '💡': '[INFO]',
-            '🎯': '[TARGET]'
-        }
-        
-        for unicode_char, ascii_replacement in replacements.items():
-            text = text.replace(unicode_char, ascii_replacement)
-        
-        return text
 
 
 def setup_logging(name, log_level=logging.INFO, log_file=None):
     """
-    Setup logging with Unicode support
+    Setup logging with Unicode support and conflict prevention
     
     Args:
         name: Logger name
@@ -77,11 +50,15 @@ def setup_logging(name, log_level=logging.INFO, log_file=None):
     """
     logger = logging.getLogger(name)
     
-    # Prevent duplicate handlers
-    if logger.handlers:
-        return logger
+    # Always clear existing handlers to prevent conflicts
+    for handler in logger.handlers[:]:
+        logger.removeHandler(handler)
+        handler.close()
     
     logger.setLevel(log_level)
+    
+    # Prevent propagation to root logger to avoid conflicts with Flask/werkzeug
+    logger.propagate = False
     
     # Create formatter
     formatter = logging.Formatter(
@@ -89,8 +66,8 @@ def setup_logging(name, log_level=logging.INFO, log_file=None):
         datefmt='%Y-%m-%d %H:%M:%S'
     )
     
-    # Console handler with Unicode support
-    console_handler = UnicodeStreamHandler(sys.stdout)
+    # Console handler with safe Unicode support
+    console_handler = SafeStreamHandler(sys.stdout)
     console_handler.setLevel(log_level)
     console_handler.setFormatter(formatter)
     logger.addHandler(console_handler)
@@ -102,26 +79,16 @@ def setup_logging(name, log_level=logging.INFO, log_file=None):
         if log_dir and not os.path.exists(log_dir):
             os.makedirs(log_dir)
         
-        # Rotating file handler with UTF-8 encoding dan buffer optimization
+        # Rotating file handler with UTF-8 encoding
         file_handler = RotatingFileHandler(
             log_file,
-            maxBytes=20*1024*1024,  # Increase to 20MB untuk mengurangi rotation frequency
-            backupCount=3,  # Kurangi backup count
+            maxBytes=10*1024*1024,  # 10MB
+            backupCount=3,
             encoding='utf-8',
-            delay=True  # Delay file creation until first write
+            delay=True
         )
         file_handler.setLevel(log_level)
         file_handler.setFormatter(formatter)
-        
-        # Add buffer untuk mengurangi I/O overhead pada background processes
-        if 'Worker' in name or 'Streaming' in name:
-            # Set higher buffer untuk background processes
-            import io
-            file_handler.stream = io.BufferedWriter(
-                io.FileIO(file_handler.baseFilename, 'ab'),
-                buffer_size=8192  # 8KB buffer
-            ) if hasattr(file_handler, 'baseFilename') else file_handler.stream
-        
         logger.addHandler(file_handler)
     
     return logger
@@ -131,7 +98,7 @@ def get_worker_logger():
     """Get logger for attendance worker with optimized settings"""
     return setup_logging(
         'AttendanceWorker',
-        log_level=logging.INFO,  # Kurangi verbosity untuk background
+        log_level=logging.INFO,
         log_file='logs/attendance_worker.log'
     )
 
@@ -140,7 +107,7 @@ def get_streaming_logger():
     """Get logger for streaming service with optimized settings"""
     return setup_logging(
         'StreamingService',
-        log_level=logging.WARNING,  # Hanya log warning dan error untuk background
+        log_level=logging.INFO,
         log_file='logs/streaming_service.log'
     )
 
@@ -158,6 +125,18 @@ def get_background_logger(name, log_file=None):
     """Get optimized logger for background processes"""
     return setup_logging(
         name,
-        log_level=logging.WARNING,  # Minimal logging untuk background
+        log_level=logging.INFO,
         log_file=log_file
     )
+
+
+def disable_other_loggers():
+    """Disable problematic loggers that might cause conflicts"""
+    # Disable werkzeug logging to prevent conflicts
+    werkzeug_logger = logging.getLogger('werkzeug')
+    werkzeug_logger.setLevel(logging.ERROR)
+    werkzeug_logger.propagate = False
+    
+    # Set root logger to a higher level to prevent interference
+    root_logger = logging.getLogger()
+    root_logger.setLevel(logging.WARNING)
