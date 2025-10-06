@@ -9,7 +9,8 @@ from config.devices import (
     get_status_display,
     get_device_display_name,
     get_zk_devices,
-    get_fingerspot_api_devices
+    get_fingerspot_api_devices,
+    DEVICE_STATUS_RULES
 )
 from app.models.attendance import AttendanceModel
 from config.logging_config import get_streaming_logger
@@ -384,6 +385,23 @@ class StreamingService:
 
                 if success:
                     logger.info(f"   -> [{device_name}] ZK Data saved to FPLog: {message}")
+                    
+                    # Update attrecord table with today's date range and specific PIN
+                    try:
+                        today_str = timestamp.strftime('%Y-%m-%d') if isinstance(timestamp, datetime) else timestamp.split()[0]
+                        attrecord_success, attrecord_message = self.attendance_model.execute_attrecord_procedure_with_pins(
+                            start_date=today_str,
+                            end_date=today_str,
+                            pins=[pin]
+                        )
+                        
+                        if attrecord_success:
+                            logger.info(f"   -> [{device_name}] ZK Attrecord procedure executed: {attrecord_message}")
+                        else:
+                            logger.warning(f"   -> [{device_name}] ZK Attrecord procedure failed: {attrecord_message}")
+                            
+                    except Exception as attrecord_error:
+                        logger.error(f"   -> [{device_name}] ZK Error executing attrecord procedure: {attrecord_error}")
                 else:
                     logger.info(f"   -> [{device_name}] ZK Data not saved to FPLog: {message}")
                 
@@ -460,6 +478,23 @@ class StreamingService:
 
                 if success:
                     logger.info(f"   -> [{device_name}] Fingerspot API Data saved to FPLog: {message}")
+                    
+                    # Update attrecord table with today's date range and specific PIN
+                    try:
+                        today_str = timestamp.strftime('%Y-%m-%d') if isinstance(timestamp, datetime) else timestamp.split()[0]
+                        attrecord_success, attrecord_message = self.attendance_model.execute_attrecord_procedure_with_pins(
+                            start_date=today_str,
+                            end_date=today_str,
+                            pins=[pin]
+                        )
+                        
+                        if attrecord_success:
+                            logger.info(f"   -> [{device_name}] Fingerspot API Attrecord procedure executed: {attrecord_message}")
+                        else:
+                            logger.warning(f"   -> [{device_name}] Fingerspot API Attrecord procedure failed: {attrecord_message}")
+                            
+                    except Exception as attrecord_error:
+                        logger.error(f"   -> [{device_name}] Fingerspot API Error executing attrecord procedure: {attrecord_error}")
                 else:
                     # Log the message, which will indicate if it was a duplicate or an error
                     logger.info(f"   -> [{device_name}] Fingerspot API Data not saved to FPLog: {message}")
@@ -521,6 +556,93 @@ class StreamingService:
                 timestamp=attendance.timestamp if hasattr(attendance, 'timestamp') else datetime.now()
             )
     
+    def _process_online_attendance_record(self, device_name, attendance):
+        """Process attendance record from Online Attendance API device - Execute attrecord procedure only"""
+        try:
+            # Extract data from online attendance record
+            pin = str(attendance.get('pin', ''))
+            status_raw = attendance.get('status', '')
+            created_at = attendance.get('created_at', '')
+            
+            # Validate required fields
+            if not pin:
+                logger.error(f"   -> [{device_name}] Online Attendance: Missing PIN in record")
+                return
+            
+            if not status_raw:
+                logger.error(f"   -> [{device_name}] Online Attendance: Missing status in record")
+                return
+            
+            if not created_at:
+                logger.error(f"   -> [{device_name}] Online Attendance: Missing created_at in record")
+                return
+            
+            # Parse timestamp from ISO 8601 format
+            try:
+                if created_at.endswith('Z'):
+                    timestamp_str = created_at.replace('Z', '').split('.')[0]
+                    timestamp = datetime.strptime(timestamp_str, '%Y-%m-%dT%H:%M:%S')
+                else:
+                    timestamp = datetime.strptime(created_at, '%Y-%m-%dT%H:%M:%S')
+            except ValueError as e:
+                logger.error(f"   -> [{device_name}] Online Attendance: Invalid timestamp format '{created_at}': {e}")
+                return
+            
+            # Determine machine using device rules (for logging purposes)
+            device_rules = DEVICE_STATUS_RULES.get('Absensi Online', {})
+            
+            # Map status to machine 
+            if status_raw == 'I':
+                machine = device_rules.get('I', '114')
+            elif status_raw == 'O':
+                machine = device_rules.get('O', '112')
+            else:
+                machine = device_rules.get('punch_other', '112')
+            
+            logger.debug(f"   -> [{device_name}] Online Attendance Status '{status_raw}' -> Machine: {machine}")
+            
+            # Execute attrecord procedure with today's date range and specific PIN
+            # This is the main integration point - same as ZK and Fingerspot devices
+            try:
+                today_str = timestamp.strftime('%Y-%m-%d')
+                attrecord_success, attrecord_message = self.attendance_model.execute_attrecord_procedure_with_pins(
+                    start_date=today_str,
+                    end_date=today_str,
+                    pins=[pin]
+                )
+                
+                if attrecord_success:
+                    logger.info(f"   -> [{device_name}] Online Attendance Attrecord procedure executed: {attrecord_message}")
+                else:
+                    logger.warning(f"   -> [{device_name}] Online Attendance Attrecord procedure failed: {attrecord_message}")
+                    
+            except Exception as attrecord_error:
+                logger.error(f"   -> [{device_name}] Online Attendance Error executing attrecord procedure: {attrecord_error}")
+            
+            # Note: Data saving to gagalabsens is handled by the online_attendance_service
+            # This processor only handles the attrecord procedure execution
+            
+            # Add notification for processed record
+            self._add_notification(
+                notification_type='attendance_received',
+                device_name=device_name,
+                user_id=pin,
+                status=status_raw,
+                timestamp=timestamp
+            )
+            
+            logger.info(f"   -> [{device_name}] Online Attendance record processed for attrecord procedure: PIN={pin}")
+            
+        except Exception as e:
+            logger.error(f"   -> [{device_name}] Failed to process Online Attendance record: {e}")
+            # Add error notification
+            self._add_notification(
+                notification_type='error',
+                device_name=device_name,
+                message=f"Failed to process Online Attendance record: {e}",
+                timestamp=datetime.now()
+            )
+    
     def _handle_online_attendance_device(self, device_info):
         """Handle streaming from Online Attendance API device with 3-hour schedule"""
         device_name = device_info['name']
@@ -543,14 +665,19 @@ class StreamingService:
                 if time_since_last_sync >= sync_interval:
                     logger.info(f"[{device_name}] Starting scheduled sync (3-hour interval)...")
                     
-                    # Perform sync
-                    success, message = self.online_attendance_service.sync_attendance_data()
+                    # Perform sync with modern processor callback for FPLog integration
+                    success, message = self.online_attendance_service.sync_attendance_data(
+                        processor_callback=self._process_online_attendance_record
+                    )
                     
                     if success:
                         logger.info(f"[{device_name}] Scheduled sync completed: {message}")
                         # Extract number of records from message if possible
                         import re
-                        match = re.search(r'Saved: (\d+)', message)
+                        # Updated regex to match hybrid message formats
+                        match = (re.search(r'Attrecord processed: (\d+)', message) or 
+                                re.search(r'Processed: (\d+)', message) or 
+                                re.search(r'Saved: (\d+)', message))
                         records_synced = int(match.group(1)) if match else 0
                         
                         # Add success notification

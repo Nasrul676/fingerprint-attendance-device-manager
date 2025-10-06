@@ -340,52 +340,52 @@ class SyncService:
 
             # Get the data that was processed by sync_attendance_data
             # Since sync_attendance_data saves to gagalabsens, we need to get attendance data differently
-            fetch_success, attendance_data, fetch_msg = self.online_attendance_service.fetch_attendance_data(start_date_str, end_date_str)
+            # fetch_success, attendance_data, fetch_msg = self.online_attendance_service.fetch_attendance_data(start_date_str, end_date_str)
             
-            if not fetch_success:
-                self.sync_status[device_name]['status'] = 'error'
-                self.sync_status[device_name]['message'] = f'Failed to fetch attendance data: {fetch_msg}'
-                return False, fetch_msg
+            # if not fetch_success:
+            #     self.sync_status[device_name]['status'] = 'error'
+            #     self.sync_status[device_name]['message'] = f'Failed to fetch attendance data: {fetch_msg}'
+            #     return False, fetch_msg
             
-            if not attendance_data:
-                self.sync_status[device_name]['status'] = 'completed'
-                self.sync_status[device_name]['message'] = 'No new data found from Online Attendance API'
-                return True, 'No new data found'
+            # if not attendance_data:
+            #     self.sync_status[device_name]['status'] = 'completed'
+            #     self.sync_status[device_name]['message'] = 'No new data found from Online Attendance API'
+            #     return True, 'No new data found'
 
             # Transform data for attendance queue
-            self.sync_status[device_name]['status'] = 'queuing'
-            self.sync_status[device_name]['message'] = f'Adding {len(attendance_data)} online attendance records to queue with duplicate check...'
+            # self.sync_status[device_name]['status'] = 'queuing'
+            # self.sync_status[device_name]['message'] = f'Adding {len(attendance_data)} online attendance records to queue with duplicate check...'
 
-            queue_records = []
-            for record in attendance_data:
-                # Process the record to extract needed fields
-                processed_record = self.online_attendance_service.process_attendance_record(record)
+            # queue_records = []
+            # for record in attendance_data:
+            #     # Process the record to extract needed fields
+            #     processed_record = self.online_attendance_service.process_attendance_record(record)
                 
-                queue_record = {
-                    'pin': str(processed_record['pin']),
-                    'date': processed_record['tgl'],  # Already in string format from process_attendance_record
-                    'status': 'baru',
-                    'machine': str(processed_record['machine']),
-                    'punch_code': processed_record.get('status', None)  # Use the original status as punch_code
-                }
-                queue_records.append(queue_record)
+            #     queue_record = {
+            #         'pin': str(processed_record['pin']),
+            #         'date': processed_record['tgl'],  # Already in string format from process_attendance_record
+            #         'status': 'baru',
+            #         'machine': str(processed_record['machine']),
+            #         'punch_code': processed_record.get('status', None)  # Use the original status as punch_code
+            #     }
+            #     queue_records.append(queue_record)
 
             # Use enhanced duplicate check method for better duplicate detection
-            success, message = self.attendance_model.bulk_add_to_attendance_queue_enhanced(queue_records)
+            # success, message = self.attendance_model.bulk_add_to_attendance_queue_enhanced(queue_records)
 
-            if success:
-                self.sync_status[device_name]['status'] = 'completed'
-                self.sync_status[device_name]['message'] = f"Online Attendance sync completed: {message}"
-                # Extract actual number of inserted records from message
-                import re
-                match = re.search(r'Inserted: (\d+)', message)
-                records_synced = int(match.group(1)) if match else len(queue_records)
-                self.sync_status[device_name]['records_synced'] = records_synced
-                return True, self.sync_status[device_name]['message']
-            else:
-                self.sync_status[device_name]['status'] = 'error'
-                self.sync_status[device_name]['message'] = f"Failed to queue Online Attendance records: {message}"
-                return False, self.sync_status[device_name]['message']
+            # if success:
+            #     self.sync_status[device_name]['status'] = 'completed'
+            #     self.sync_status[device_name]['message'] = f"Online Attendance sync completed: {message}"
+            #     # Extract actual number of inserted records from message
+            #     import re
+            #     match = re.search(r'Inserted: (\d+)', message)
+            #     records_synced = int(match.group(1)) if match else len(queue_records)
+            #     self.sync_status[device_name]['records_synced'] = records_synced
+            #     return True, self.sync_status[device_name]['message']
+            # else:
+            #     self.sync_status[device_name]['status'] = 'error'
+            #     self.sync_status[device_name]['message'] = f"Failed to queue Online Attendance records: {message}"
+            #     return False, self.sync_status[device_name]['message']
 
         except Exception as e:
             error_msg = f"Error syncing Online Attendance device {device_name}: {str(e)}"
@@ -407,28 +407,28 @@ class SyncService:
         self.sync_status[device_name]['message'] = f'Processing {len(fplog_data)} ZK device records...'
         
         # Add to Attendance Queue with ZK-specific processing
-        self.sync_status[device_name]['status'] = 'queuing'
-        self.sync_status[device_name]['message'] = f'Adding {len(fplog_data)} ZK records to attendance queue with duplicate check...'
+        # self.sync_status[device_name]['status'] = 'queuing'
+        # self.sync_status[device_name]['message'] = f'Adding {len(fplog_data)} ZK records to attendance queue with duplicate check...'
         
         # Prepare queue records for ZK devices
-        queue_records = []
-        for fplog_record in fplog_data:
-            queue_record = {
-                'pin': fplog_record['PIN'],
-                'date': fplog_record['Date'],
-                'status': 'baru',  # Default status for ZK devices
-                'machine': fplog_record['Machine'],
-                'punch_code': fplog_record.get('Status', None),
-                'source_type': 'zk'  # Mark as ZK source
-            }
-            queue_records.append(queue_record)
+        # queue_records = []
+        # for fplog_record in fplog_data:
+        #     queue_record = {
+        #         'pin': fplog_record['PIN'],
+        #         'date': fplog_record['Date'],
+        #         'status': 'baru',  # Default status for ZK devices
+        #         'machine': fplog_record['Machine'],
+        #         'punch_code': fplog_record.get('Status', None),
+        #         'source_type': 'zk'  # Mark as ZK source
+        #     }
+        #     queue_records.append(queue_record)
         
-        # Add to attendance queue with enhanced duplicate check
-        queue_success, queue_message = self.attendance_model.bulk_add_to_attendance_queue_if_not_duplicate(queue_records)
-        if not queue_success:
-            print(f"Warning: Failed to add ZK records to attendance queue: {queue_message}")
-        else:
-            print(f"Successfully added ZK records to attendance queue with duplicate check: {queue_message}")
+        # # Add to attendance queue with enhanced duplicate check
+        # queue_success, queue_message = self.attendance_model.bulk_add_to_attendance_queue_if_not_duplicate(queue_records)
+        # if not queue_success:
+        #     print(f"Warning: Failed to add ZK records to attendance queue: {queue_message}")
+        # else:
+        #     print(f"Successfully added ZK records to attendance queue with duplicate check: {queue_message}")
         
         # Sync to SQL Server FPLog with ZK-specific processing and duplicate check
         self.sync_status[device_name]['status'] = 'syncing'
@@ -465,8 +465,8 @@ class SyncService:
         self.sync_status[device_name]['message'] = f'Processing {len(fplog_data)} Fingerspot API records...'
         
         # Add to Attendance Queue with API-specific processing
-        self.sync_status[device_name]['status'] = 'queuing'
-        self.sync_status[device_name]['message'] = f'Adding {len(fplog_data)} Fingerspot API records to attendance queue with duplicate check...'
+        # self.sync_status[device_name]['status'] = 'queuing'
+        # self.sync_status[device_name]['message'] = f'Adding {len(fplog_data)} Fingerspot API records to attendance queue with duplicate check...'
         
         # Prepare queue records for Fingerspot API devices
         queue_records = []
@@ -491,11 +491,11 @@ class SyncService:
             queue_records.append(queue_record)
         
         # Add to attendance queue with enhanced duplicate check
-        queue_success, queue_message = self.attendance_model.bulk_add_to_attendance_queue_if_not_duplicate(queue_records)
-        if not queue_success:
-            print(f"Warning: Failed to add Fingerspot API records to attendance queue: {queue_message}")
-        else:
-            print(f"Successfully added Fingerspot API records to attendance queue with duplicate check: {queue_message}")
+        # queue_success, queue_message = self.attendance_model.bulk_add_to_attendance_queue_if_not_duplicate(queue_records)
+        # if not queue_success:
+        #     print(f"Warning: Failed to add Fingerspot API records to attendance queue: {queue_message}")
+        # else:
+        #     print(f"Successfully added Fingerspot API records to attendance queue with duplicate check: {queue_message}")
         
         # Sync to SQL Server FPLog with API-specific processing and duplicate check
         self.sync_status[device_name]['status'] = 'syncing'
@@ -522,8 +522,8 @@ class SyncService:
     
 
     
-    def sync_all_devices(self, start_date=None, end_date=None):
-        """Synchronize FPLog data from all configured devices"""
+    def sync_all_devices(self, start_date=None, end_date=None, execute_procedures=True):
+        """Synchronize FPLog data from all configured devices and optionally execute procedures"""
         results = {}
         
         # Start sync for each device in separate threads
@@ -537,6 +537,18 @@ class SyncService:
             thread.start()
             self.sync_threads[device_name] = thread
         
+        # Wait for all threads to complete if execute_procedures is True
+        if execute_procedures:
+            # Start a separate thread to wait for all devices and then execute procedures
+            procedure_thread = threading.Thread(
+                target=self._execute_procedures_after_sync,
+                args=(start_date, end_date, results)
+            )
+            procedure_thread.daemon = True
+            procedure_thread.start()
+            
+            return True, f"Started synchronization for {len(self.devices)} devices with automatic procedure execution"
+        
         return True, f"Started synchronization for {len(self.devices)} devices"
     
     def _sync_device_thread(self, device, start_date, end_date, results):
@@ -544,6 +556,119 @@ class SyncService:
         device_name = device['name']
         success, message = self.sync_single_device(device, start_date, end_date)
         results[device_name] = {'success': success, 'message': message}
+    
+    def _execute_procedures_after_sync(self, start_date, end_date, results):
+        """Execute stored procedures after all devices are synchronized"""
+        # Wait for all device sync threads to complete
+        max_wait_time = 300  # 5 minutes timeout
+        wait_start = time.time()
+        
+        while time.time() - wait_start < max_wait_time:
+            all_completed = True
+            for device_name, thread in self.sync_threads.items():
+                if thread.is_alive():
+                    all_completed = False
+                    break
+            
+            if all_completed:
+                break
+            
+            time.sleep(2)  # Check every 2 seconds
+        
+        # Check if any devices failed or are still running
+        failed_devices = []
+        running_devices = []
+        successful_devices = []
+        
+        for device_name, thread in self.sync_threads.items():
+            if thread.is_alive():
+                running_devices.append(device_name)
+            elif device_name in results:
+                if results[device_name]['success']:
+                    successful_devices.append(device_name)
+                else:
+                    failed_devices.append(device_name)
+        
+        # Update sync status to show procedure execution phase
+        procedure_status = {
+            'status': 'executing_procedures',
+            'message': f'Device sync completed. Successful: {len(successful_devices)}, Failed: {len(failed_devices)}, Timeout: {len(running_devices)}. Executing stored procedures...',
+            'start_time': datetime.now(),
+            'successful_devices': successful_devices,
+            'failed_devices': failed_devices,
+            'timeout_devices': running_devices
+        }
+        
+        # Add procedure status to sync_status
+        self.sync_status['_procedures'] = procedure_status
+        
+        # Execute stored procedures if we have date range
+        if start_date and end_date:
+            try:
+                # Format dates for procedure execution
+                start_date_str = start_date.strftime('%Y-%m-%d') if hasattr(start_date, 'strftime') else str(start_date)
+                end_date_str = end_date.strftime('%Y-%m-%d') if hasattr(end_date, 'strftime') else str(end_date)
+                
+                print(f"Executing stored procedures for date range: {start_date_str} to {end_date_str}")
+                
+                # Execute attrecord procedure FIRST
+                self.sync_status['_procedures']['message'] = 'Executing attrecord procedure...'
+                print("🔄 Step 1: Executing attrecord procedure...")
+                attrecord_success, attrecord_message = self.attendance_model.execute_attrecord_procedure(
+                    start_date_str, end_date_str
+                )
+                
+                if attrecord_success:
+                    print(f"✅ Step 1 completed: attrecord procedure successful - {attrecord_message}")
+                    
+                    # Only execute spJamkerja if attrecord was successful
+                    self.sync_status['_procedures']['message'] = 'Executing spJamkerja procedure...'
+                    print("🔄 Step 2: Executing spJamkerja procedure...")
+                    spjamkerja_success, spjamkerja_message = self.attendance_model.execute_spjamkerja_procedure(
+                        start_date_str, end_date_str
+                    )
+                    
+                    if spjamkerja_success:
+                        print(f"✅ Step 2 completed: spJamkerja procedure successful - {spjamkerja_message}")
+                    else:
+                        print(f"❌ Step 2 failed: spJamkerja procedure failed - {spjamkerja_message}")
+                else:
+                    print(f"❌ Step 1 failed: attrecord procedure failed - {attrecord_message}")
+                    print("⚠️  Step 2 skipped: spJamkerja procedure will not be executed due to attrecord failure")
+                    spjamkerja_success = False
+                    spjamkerja_message = "Skipped due to attrecord procedure failure"
+                
+                # Update final status
+                if attrecord_success and spjamkerja_success:
+                    self.sync_status['_procedures']['status'] = 'completed'
+                    self.sync_status['_procedures']['message'] = f'All procedures completed successfully. Device sync - Successful: {len(successful_devices)}, Failed: {len(failed_devices)}'
+                else:
+                    self.sync_status['_procedures']['status'] = 'partial_error'
+                    error_details = []
+                    if not attrecord_success:
+                        error_details.append(f"attrecord: {attrecord_message}")
+                    if not spjamkerja_success:
+                        error_details.append(f"spJamkerja: {spjamkerja_message}")
+                    self.sync_status['_procedures']['message'] = f'Some procedures failed: {"; ".join(error_details)}'
+                
+                self.sync_status['_procedures']['attrecord_success'] = attrecord_success
+                self.sync_status['_procedures']['attrecord_message'] = attrecord_message
+                self.sync_status['_procedures']['spjamkerja_success'] = spjamkerja_success
+                self.sync_status['_procedures']['spjamkerja_message'] = spjamkerja_message
+                
+            except Exception as e:
+                error_msg = f"Error executing stored procedures: {str(e)}"
+                print(f"❌ {error_msg}")
+                self.sync_status['_procedures']['status'] = 'error'
+                self.sync_status['_procedures']['message'] = error_msg
+        else:
+            # No date range provided
+            self.sync_status['_procedures']['status'] = 'skipped'
+            self.sync_status['_procedures']['message'] = 'Stored procedures skipped - no date range provided'
+        
+        self.sync_status['_procedures']['end_time'] = datetime.now()
+        print(f"Procedure execution completed: {self.sync_status['_procedures']['message']}")
+    
     
     def get_sync_status(self):
         """Get current synchronization status for all devices"""

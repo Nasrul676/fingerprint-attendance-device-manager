@@ -77,7 +77,7 @@ def create_app(config_name=None):
         })
     
     # Register blueprints
-    from app.routes import main_bp, api_bp, sync_bp, fplog_bp, failed_logs_bp, job_bp, attendance_worker_bp
+    from app.routes import main_bp, api_bp, sync_bp, fplog_bp, failed_logs_bp, vps_push_bp, legacy_attendance_bp, attendance_worker_bp
     from app.controllers.attendance_report_controller import attendance_report_bp
     
     app.register_blueprint(main_bp)
@@ -85,16 +85,9 @@ def create_app(config_name=None):
     app.register_blueprint(sync_bp, url_prefix='/sync')
     app.register_blueprint(fplog_bp, url_prefix='/fplog')
     app.register_blueprint(failed_logs_bp, url_prefix='/failed-logs')
+    app.register_blueprint(vps_push_bp, url_prefix='/vps-push')
+    app.register_blueprint(legacy_attendance_bp, url_prefix='/legacy-attendance')
     app.register_blueprint(attendance_report_bp)
-    app.register_blueprint(job_bp)  # Remove url_prefix since it's already defined in routes.py
     app.register_blueprint(attendance_worker_bp)  # Attendance worker dashboard
-    
-    # Initialize job service worker
-    from app.services.job_service import job_service
-    try:
-        job_service.start_worker()
-        app.logger.info("Job service worker started successfully")
-    except Exception as e:
-        app.logger.error(f"Failed to start job service worker: {e}")
     
     return app

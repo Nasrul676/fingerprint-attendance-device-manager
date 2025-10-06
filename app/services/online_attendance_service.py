@@ -418,13 +418,14 @@ class OnlineAttendanceService:
         
         return filtered_records
     
-    def sync_attendance_data(self, start_date=None, end_date=None):
+    def sync_attendance_data(self, start_date=None, end_date=None, processor_callback=None):
         """
-        Main method untuk melakukan sync data absensi dari API ke gagalabsens
+        Main method untuk melakukan sync data absensi dari API ke gagalabsens dengan attrecord integration
         
         Args:
             start_date (str): Tanggal mulai (optional)
             end_date (str): Tanggal akhir (optional)
+            processor_callback (function): Callback function untuk eksekusi prosedur attrecord (optional)
             
         Returns:
             tuple: (success: bool, message: str)
@@ -441,14 +442,25 @@ class OnlineAttendanceService:
             if not raw_data:
                 return True, "No new data available from API"
             
-            # Step 2: Process raw data
+            # Step 2: Process raw data for gagalabsens
             processed_records = []
             processing_errors = []
+            attrecord_processed = 0
             
             for record in raw_data:
                 try:
+                    # Always process record for gagalabsens
                     processed_record = self.process_attendance_record(record)
                     processed_records.append(processed_record)
+                    
+                    # If processor callback is provided, also process for attrecord procedure
+                    if processor_callback:
+                        try:
+                            processor_callback('Absensi Online', record)
+                            attrecord_processed += 1
+                        except Exception as callback_error:
+                            self.logger.warning(f"Attrecord callback failed for record: {callback_error}")
+                    
                 except Exception as e:
                     processing_errors.append(f"Error processing record: {e}")
                     continue
@@ -459,23 +471,35 @@ class OnlineAttendanceService:
                     error_msg += f". Errors: {'; '.join(processing_errors[:3])}"
                 return False, error_msg
             
-            # Step 3: Filter duplicates
+            # Step 3: Filter duplicates for gagalabsens
             filtered_records = self.filter_duplicates(processed_records)
             
             if not filtered_records:
-                return True, f"All {len(processed_records)} records were duplicates - no new data to save"
+                # Even if no new records for gagalabsens, attrecord might have been processed
+                if processor_callback and attrecord_processed > 0:
+                    summary_msg = f"All {len(processed_records)} records were duplicates for gagalabsens, but {attrecord_processed} processed for attrecord"
+                else:
+                    summary_msg = f"All {len(processed_records)} records were duplicates - no new data to save"
+                return True, summary_msg
             
-            # Step 4: Save to database
+            # Step 4: Save to gagalabsens
             save_success, save_message = self.save_to_gagalabsens(filtered_records)
             
             if not save_success:
                 return False, f"Failed to save data: {save_message}"
             
             # Step 5: Return summary
-            summary_msg = f"Sync completed successfully. "
-            summary_msg += f"Fetched: {len(raw_data)}, "
-            summary_msg += f"Processed: {len(processed_records)}, "
-            summary_msg += f"Saved: {len(filtered_records)}"
+            if processor_callback:
+                summary_msg = f"Hybrid sync completed. "
+                summary_msg += f"Fetched: {len(raw_data)}, "
+                summary_msg += f"Processed: {len(processed_records)}, "
+                summary_msg += f"Saved to gagalabsens: {len(filtered_records)}, "
+                summary_msg += f"Attrecord processed: {attrecord_processed}"
+            else:
+                summary_msg = f"Legacy sync completed. "
+                summary_msg += f"Fetched: {len(raw_data)}, "
+                summary_msg += f"Processed: {len(processed_records)}, "
+                summary_msg += f"Saved to gagalabsens: {len(filtered_records)}"
             
             if processing_errors:
                 summary_msg += f", Errors: {len(processing_errors)}"

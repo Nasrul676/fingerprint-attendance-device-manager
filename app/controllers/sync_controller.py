@@ -38,6 +38,7 @@ class SyncController:
             data = request.get_json() or {}
             start_date = data.get('start_date')
             end_date = data.get('end_date')
+            execute_procedures = data.get('execute_procedures', True)  # Default True untuk eksekusi prosedur
             
             # Convert date strings to date objects if provided
             start_date_obj = None
@@ -48,13 +49,23 @@ class SyncController:
             if end_date:
                 end_date_obj = datetime.strptime(end_date, '%Y-%m-%d').date()
             
-            success, message = self.sync_service.sync_all_devices(start_date_obj, end_date_obj)
+            success, message = self.sync_service.sync_all_devices(
+                start_date_obj, end_date_obj, execute_procedures
+            )
             
-            return jsonify({
+            response_data = {
                 'success': success,
                 'message': message,
-                'sync_id': datetime.now().strftime('%Y%m%d_%H%M%S')
-            })
+                'sync_id': datetime.now().strftime('%Y%m%d_%H%M%S'),
+                'execute_procedures': execute_procedures
+            }
+            
+            if execute_procedures and start_date_obj and end_date_obj:
+                response_data['procedures_info'] = f"Stored procedures (attrecord, spJamkerja) will be executed after sync completion for period {start_date} to {end_date}"
+            elif execute_procedures:
+                response_data['procedures_info'] = "Stored procedures will be skipped - no date range provided"
+            
+            return jsonify(response_data)
             
         except Exception as e:
             return jsonify({
@@ -118,10 +129,28 @@ class SyncController:
             status = self.sync_service.get_sync_status()
             devices = self.sync_service.get_device_list()
             
+            # Format datetime objects for JSON serialization
+            formatted_status = {}
+            for device_name, device_status in status.items():
+                formatted_device_status = device_status.copy()
+                
+                # Format datetime fields
+                for field in ['start_time', 'end_time']:
+                    if field in formatted_device_status and formatted_device_status[field]:
+                        formatted_device_status[field] = formatted_device_status[field].strftime('%Y-%m-%d %H:%M:%S')
+                
+                formatted_status[device_name] = formatted_device_status
+            
+            # Check if there are any active sync operations including procedure execution
+            active_syncs = sum(1 for status_info in status.values() 
+                             if status_info.get('status') in ['connecting', 'reading', 'syncing', 'processing', 'executing_procedures'])
+            
             return jsonify({
                 'success': True,
-                'status': status,
-                'devices': devices
+                'status': formatted_status,
+                'devices': devices,
+                'active_syncs': active_syncs,
+                'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             })
             
         except Exception as e:
@@ -147,6 +176,91 @@ class SyncController:
             return jsonify({
                 'success': False,
                 'message': f'Error cancelling sync: {str(e)}'
+            }), 500
+    
+    def execute_stored_procedures(self):
+        """Execute stored procedures manually"""
+        try:
+            data = request.get_json() or {}
+            start_date = data.get('start_date')
+            end_date = data.get('end_date')
+            
+            if not start_date or not end_date:
+                return jsonify({
+                    'success': False,
+                    'message': 'start_date and end_date are required'
+                }), 400
+            
+            # Validate date format
+            try:
+                datetime.strptime(start_date, '%Y-%m-%d')
+                datetime.strptime(end_date, '%Y-%m-%d')
+            except ValueError:
+                return jsonify({
+                    'success': False,
+                    'message': 'Date format must be YYYY-MM-DD'
+                }), 400
+            
+            # Execute procedures sequentially: attrecord FIRST, then spJamkerja
+            results = {}
+            
+            # Step 1: Execute attrecord procedure FIRST
+            print(f"🔄 Manual execution Step 1: Executing attrecord procedure for {start_date} to {end_date}")
+            attrecord_success, attrecord_message = self.sync_service.attendance_model.execute_attrecord_procedure(
+                start_date, end_date
+            )
+            results['attrecord'] = {
+                'success': attrecord_success,
+                'message': attrecord_message,
+                'step': 1
+            }
+            
+            # Step 2: Execute spJamkerja procedure ONLY if attrecord was successful
+            if attrecord_success:
+                print(f"✅ Step 1 completed: attrecord successful. Proceeding to Step 2: spJamkerja")
+                spjamkerja_success, spjamkerja_message = self.sync_service.attendance_model.execute_spjamkerja_procedure(
+                    start_date, end_date
+                )
+                results['spjamkerja'] = {
+                    'success': spjamkerja_success,
+                    'message': spjamkerja_message,
+                    'step': 2
+                }
+                print(f"{'✅' if spjamkerja_success else '❌'} Step 2 completed: spJamkerja {'successful' if spjamkerja_success else 'failed'}")
+            else:
+                print(f"❌ Step 1 failed: attrecord failed. Skipping Step 2: spJamkerja")
+                spjamkerja_success = False
+                spjamkerja_message = "Skipped due to attrecord procedure failure"
+                results['spjamkerja'] = {
+                    'success': False,
+                    'message': spjamkerja_message,
+                    'step': 2,
+                    'skipped': True
+                }
+            
+            # Overall success - both procedures must succeed
+            overall_success = attrecord_success and spjamkerja_success
+            
+            # Enhanced response message
+            if overall_success:
+                response_message = f'Both procedures executed successfully for period {start_date} to {end_date}'
+            elif attrecord_success and not spjamkerja_success:
+                response_message = f'attrecord completed but spJamkerja failed for period {start_date} to {end_date}'
+            else:
+                response_message = f'attrecord failed for period {start_date} to {end_date}. spJamkerja was skipped.'
+            
+            return jsonify({
+                'success': overall_success,
+                'message': response_message,
+                'results': results,
+                'execution_order': ['attrecord', 'spjamkerja'],
+                'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            })
+            
+        except Exception as e:
+            return jsonify({
+                'success': False,
+                'message': f'Error executing stored procedures: {str(e)}'
             }), 500
     
     def get_device_list(self):

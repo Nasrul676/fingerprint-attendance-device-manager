@@ -23,6 +23,13 @@ class Config:
     JSON_SORT_KEYS = False
     JSONIFY_PRETTYPRINT_REGULAR = False
     
+    # Base VPS API Configuration (can be overridden in subclasses)
+    VPS_API_URL = os.environ.get('VPS_API_URL') or None
+    VPS_API_KEY = os.environ.get('VPS_API_KEY') or None
+    VPS_API_TIMEOUT = int(os.environ.get('VPS_API_TIMEOUT', 30))
+    VPS_API_RETRY_COUNT = int(os.environ.get('VPS_API_RETRY_COUNT', 3))
+    VPS_PUSH_ENABLED = os.environ.get('VPS_PUSH_ENABLED', 'False').lower() == 'true'
+    
     def get_available_odbc_drivers(self):
         """Get list of available SQL Server ODBC drivers"""
         drivers = pyodbc.drivers()
@@ -149,6 +156,13 @@ class DevelopmentConfig(Config):
     SQLSERVER_PASSWORD = os.environ.get('SQLSERVER_PASSWORD') or 'Pkppastibisa-2025'
     # Explicitly set the desired driver. This will be used unless overridden by .env
     SQLSERVER_DRIVER = os.environ.get('SQLSERVER_DRIVER') or 'ODBC Driver 17 for SQL Server'
+    
+    # VPS API Configuration for AttRecord Push
+    VPS_API_URL = os.environ.get('VPS_API_URL') or None
+    VPS_API_KEY = os.environ.get('VPS_API_KEY') or None
+    VPS_API_TIMEOUT = int(os.environ.get('VPS_API_TIMEOUT', 30))
+    VPS_API_RETRY_COUNT = int(os.environ.get('VPS_API_RETRY_COUNT', 3))
+    VPS_PUSH_ENABLED = os.environ.get('VPS_PUSH_ENABLED', 'False').lower() == 'true'
 
 class ProductionConfig(Config):
     """Production configuration"""
@@ -164,6 +178,13 @@ class ProductionConfig(Config):
     SQLSERVER_USERNAME = os.environ.get('SQLSERVER_USERNAME') or None
     SQLSERVER_PASSWORD = os.environ.get('SQLSERVER_PASSWORD') or None
     SQLSERVER_DRIVER = os.environ.get('SQLSERVER_DRIVER') or 'ODBC Driver 17 for SQL Server'
+    
+    # VPS API Configuration for AttRecord Push
+    VPS_API_URL = os.environ.get('VPS_API_URL') or None
+    VPS_API_KEY = os.environ.get('VPS_API_KEY') or None
+    VPS_API_TIMEOUT = int(os.environ.get('VPS_API_TIMEOUT', 30))
+    VPS_API_RETRY_COUNT = int(os.environ.get('VPS_API_RETRY_COUNT', 3))
+    VPS_PUSH_ENABLED = os.environ.get('VPS_PUSH_ENABLED', 'False').lower() == 'true'
     
     @classmethod
     def validate_config(cls):
@@ -197,6 +218,13 @@ class TestingConfig(Config):
     SQLSERVER_USERNAME = 'sa'
     SQLSERVER_PASSWORD = 'Pkppastibisa-2025'
     SQLSERVER_DRIVER = 'ODBC Driver 17 for SQL Server'  # Use same as configured
+    
+    # VPS API Configuration for AttRecord Push (Testing)
+    VPS_API_URL = os.environ.get('VPS_API_URL') or None
+    VPS_API_KEY = os.environ.get('VPS_API_KEY') or None
+    VPS_API_TIMEOUT = int(os.environ.get('VPS_API_TIMEOUT', 10))  # Shorter timeout for testing
+    VPS_API_RETRY_COUNT = int(os.environ.get('VPS_API_RETRY_COUNT', 1))  # Less retries for testing
+    VPS_PUSH_ENABLED = os.environ.get('VPS_PUSH_ENABLED', 'False').lower() == 'true'
 
 # Configuration dictionary
 config = {

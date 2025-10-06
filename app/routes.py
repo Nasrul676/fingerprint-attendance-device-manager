@@ -4,7 +4,9 @@ from app.controllers.api_controller import APIController
 from app.controllers.sync_controller import SyncController
 from app.controllers.fplog_controller import FPLogController
 from app.controllers.failed_log_controller import FailedLogController
-from app.controllers.job_controller import job_controller
+from app.controllers.vps_push_controller import vps_push_controller
+from app.controllers.legacy_attendance_controller import legacy_attendance_controller
+
 from app.controllers.attendance_worker_controller import attendance_worker_controller
 
 # Create blueprints
@@ -13,7 +15,9 @@ api_bp = Blueprint('api', __name__)
 sync_bp = Blueprint('sync', __name__, url_prefix='/sync')
 fplog_bp = Blueprint('fplog', __name__, url_prefix='/fplog')
 failed_logs_bp = Blueprint('failed_logs', __name__, url_prefix='/failed-logs')
-job_bp = Blueprint('job', __name__, url_prefix='/job')
+vps_push_bp = Blueprint('vps_push', __name__, url_prefix='/vps-push')
+legacy_attendance_bp = Blueprint('legacy_attendance', __name__, url_prefix='/legacy-attendance')
+
 attendance_worker_bp = Blueprint('attendance_worker', __name__, url_prefix='/attendance-worker')
 
 # Initialize controllers
@@ -115,6 +119,10 @@ def get_streaming_notifications():
 def clear_streaming_notifications():
     return sync_controller.clear_streaming_notifications()
 
+@sync_bp.route('/procedures/execute', methods=['POST'])
+def execute_stored_procedures():
+    return sync_controller.execute_stored_procedures()
+
 # FPLog routes
 @fplog_bp.route('/')
 def fplog_dashboard():
@@ -145,113 +153,7 @@ def search_failed_logs():
 def get_failed_logs_stats():
     return failed_log_controller.get_failed_logs_stats()
 
-# Job Management routes
-@job_bp.route('/')
-def job_dashboard():
-    from flask import render_template
-    return render_template('job_dashboard_enhanced.html')
 
-@job_bp.route('/queue')
-def job_queue_monitor():
-    from flask import render_template
-    return render_template('job_queue_monitor.html')
-
-@job_bp.route('/history')
-def job_history():
-    from flask import render_template
-    return render_template('job_history.html')
-
-@job_bp.route('/statistics')
-def job_statistics():
-    from flask import render_template
-    return render_template('job_statistics.html')
-
-@job_bp.route('/procedure', methods=['POST'])
-def create_procedure_job():
-    return job_controller.create_procedure_job()
-
-@job_bp.route('/<job_id>/status', methods=['GET'])
-def get_job_status(job_id):
-    return job_controller.get_job_status(job_id)
-
-@job_bp.route('/user', methods=['GET'])
-def get_user_jobs():
-    return job_controller.get_user_jobs()
-
-@job_bp.route('/queue/api', methods=['GET'])
-def get_job_queue():
-    return job_controller.get_job_queue()
-
-@job_bp.route('/statistics/api', methods=['GET'])
-def get_job_statistics():
-    return job_controller.get_job_statistics()
-
-@job_bp.route('/<job_id>/cancel', methods=['POST'])
-def cancel_job(job_id):
-    return job_controller.cancel_job(job_id)
-
-@job_bp.route('/notifications', methods=['GET'])
-def get_job_notifications():
-    return job_controller.get_job_notifications()
-
-@job_bp.route('/notifications/<notification_id>/read', methods=['POST'])
-def mark_notification_read(notification_id):
-    return job_controller.mark_notification_read(notification_id)
-
-@job_bp.route('/<job_id>/retry', methods=['POST'])
-def retry_job(job_id):
-    return job_controller.retry_job(job_id)
-
-# Job History API routes
-@job_bp.route('/api/job-history', methods=['GET'])
-def get_job_history():
-    return job_controller.get_job_history()
-
-@job_bp.route('/api/job-history-stats', methods=['GET'])
-def get_job_history_stats():
-    return job_controller.get_job_history_stats()
-
-@job_bp.route('/api/job-details/<job_id>', methods=['GET'])
-def get_job_details(job_id):
-    return job_controller.get_job_details(job_id)
-
-@job_bp.route('/api/job-history-export', methods=['GET'])
-def export_job_history():
-    return job_controller.export_job_history()
-
-@job_bp.route('/api/retry-job/<job_id>', methods=['POST'])
-def retry_job_api(job_id):
-    return job_controller.retry_job(job_id)
-
-# Job Statistics API routes
-@job_bp.route('/api/job-statistics', methods=['GET'])
-def get_job_statistics_advanced():
-    return job_controller.get_job_statistics_advanced()
-
-@job_bp.route('/api/job-trends', methods=['GET'])
-def get_job_trends():
-    return job_controller.get_job_trends()
-
-# Worker Control API routes
-@job_bp.route('/worker/start', methods=['POST'])
-def start_job_worker():
-    return job_controller.start_job_worker()
-
-@job_bp.route('/worker/stop', methods=['POST'])
-def stop_job_worker():
-    return job_controller.stop_job_worker()
-
-@job_bp.route('/worker/restart', methods=['POST'])
-def restart_job_worker():
-    return job_controller.restart_job_worker()
-
-@job_bp.route('/worker/status', methods=['GET'])
-def get_worker_status():
-    return job_controller.get_worker_status()
-
-@job_bp.route('/test-job', methods=['POST'])
-def create_test_job():
-    return job_controller.create_test_job()
 
 # Attendance Worker routes
 @attendance_worker_bp.route('/')
@@ -289,3 +191,60 @@ def clear_attendance_worker_activity_log():
 @attendance_worker_bp.route('/api/download-log')
 def download_attendance_worker_log():
     return attendance_worker_controller.download_log()
+
+# VPS Push routes
+@vps_push_bp.route('/')
+def vps_push_dashboard():
+    """VPS Push Dashboard"""
+    return vps_push_controller.dashboard()
+
+@vps_push_bp.route('/test', methods=['GET'])
+def test_vps_connection():
+    """Test VPS connection"""
+    return vps_push_controller.test_vps_connection()
+
+@vps_push_bp.route('/statistics', methods=['GET'])
+def get_vps_statistics():
+    """Get VPS push statistics"""
+    return vps_push_controller.get_vps_statistics()
+
+@vps_push_bp.route('/preview', methods=['POST'])
+def get_attrecord_preview():
+    """Get preview of AttRecord data without pushing"""
+    return vps_push_controller.get_attrecord_preview()
+
+@vps_push_bp.route('/push/today', methods=['POST'])
+def push_attrecord_today():
+    """Push today's AttRecord data to VPS"""
+    return vps_push_controller.push_attrecord_today()
+
+@vps_push_bp.route('/push/date-range', methods=['POST'])
+def push_attrecord_by_date():
+    """Push AttRecord data by date range to VPS"""
+    return vps_push_controller.push_attrecord_by_date()
+
+@vps_push_bp.route('/push/pins', methods=['POST'])
+def push_attrecord_for_pins():
+    """Push AttRecord data for specific PINs to VPS"""
+    return vps_push_controller.push_attrecord_for_pins()
+
+# Legacy Attendance routes
+@legacy_attendance_bp.route('/')
+def legacy_attendance_dashboard():
+    """Legacy attendance export dashboard"""
+    return legacy_attendance_controller.dashboard()
+
+@legacy_attendance_bp.route('/data', methods=['POST'])
+def get_legacy_attendance_data():
+    """Get legacy attendance data"""
+    return legacy_attendance_controller.get_legacy_attendance_data()
+
+@legacy_attendance_bp.route('/export/csv', methods=['POST'])
+def export_legacy_attendance_csv():
+    """Export legacy attendance data to CSV"""
+    return legacy_attendance_controller.export_legacy_attendance_csv()
+
+@legacy_attendance_bp.route('/summary', methods=['POST'])
+def get_legacy_attendance_summary():
+    """Get summary of legacy attendance data"""
+    return legacy_attendance_controller.get_legacy_attendance_summary()

@@ -148,8 +148,8 @@ class AttendanceWorker:
         self.is_running = True
         logger.info("[START] Memulai Attendance Worker...")
         
-        # Schedule job untuk berjalan setiap 1 jam
-        schedule.every().hour.do(self._process_attendance_queue_safe)
+        # Schedule job untuk berjalan setiap 30 menit
+        schedule.every(30).minutes.do(self._process_attendance_queue_safe)
         
         # Jalankan sekali saat startup dalam thread terpisah
         logger.info("[INIT] Menjalankan pemrosesan pertama kali...")
@@ -344,7 +344,7 @@ class AttendanceWorker:
             'is_running': self.is_running,
             'next_run': schedule.next_run() if schedule.jobs else None,
             'queue_stats': queue_stats,
-            'schedule_info': f"Setiap 1 jam ({len(schedule.jobs)} jobs scheduled)"
+            'schedule_info': f"Setiap 30 menit ({len(schedule.jobs)} jobs scheduled)"
         }
     
     def _get_queue_stats(self):

@@ -144,7 +144,7 @@ class AttendanceWorkerController:
             
             # Tambahkan ke activity log
             self._add_to_activity_log("🚀 Worker dimulai melalui dashboard", 'SUCCESS')
-            self._add_to_activity_log("⏰ Jadwal: Setiap 1 jam, memproses data 2 hari yang lalu", 'INFO')
+            self._add_to_activity_log("⏰ Jadwal: Setiap 30 menit, memproses data 2 hari yang lalu", 'INFO')
             self._add_to_activity_log("📊 Status: Worker aktif dan siap memproses", 'INFO')
             
             logger.info("Attendance worker started via dashboard")

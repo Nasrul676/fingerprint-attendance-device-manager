@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Absen Lama - ABSENSI</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .card-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .btn-custom {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            color: white;
+        }
+        .btn-custom:hover {
+            background: linear-gradient(135deg, #5a67d8 0%, #6b46c1 100%);
+            color: white;
+        }
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        .status-success { background-color: #28a745; }
+        .status-error { background-color: #dc3545; }
+        .status-warning { background-color: #ffc107; }
+        .summary-card {
+            border-left: 4px solid #667eea;
+            background: #f8f9fa;
+        }
+        .loading-spinner {
+            display: none;
+        }
+        .export-section {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body class="bg-light">
+    {% extends "base.html" %}
+    
+    {% block title %}Absen Lama{% endblock %}
+    
+    {% block content %}
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-12">
+                <!-- Header -->
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <div>
+                        <h2><i class="fas fa-history me-2"></i>Data Absen Lama</h2>
+                        <p class="text-muted">Kelola dan export data absensi historis dari sistem lama (FPLog dan gagalabsens)</p>
+                    </div>
+                    <div>
+                        <button class="btn btn-outline-secondary" onclick="location.reload()">
+                            <i class="fas fa-sync-alt"></i> Refresh
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Export Form -->
+                <div class="export-section">
+                    <div class="row">
+                        <div class="col-md-12">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5><i class="fas fa-calendar-alt me-2"></i>Parameter Export Absen Lama</h5>
+                                </div>
+                                <div class="card-body">
+                                    <form id="exportForm">
+                                        <div class="row">
+                                            <div class="col-md-6 mb-3">
+                                                <label for="startDate" class="form-label">Tanggal Mulai</label>
+                                                <input type="date" class="form-control" id="startDate" required>
+                                            </div>
+                                            <div class="col-md-6 mb-3">
+                                                <label for="endDate" class="form-label">Tanggal Akhir</label>
+                                                <input type="date" class="form-control" id="endDate" required>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="d-grid gap-2">
+                                            <button type="button" class="btn btn-custom" onclick="previewData()">
+                                                <i class="fas fa-eye me-2"></i>Lihat Preview Data
+                                            </button>
+                                            <button type="button" class="btn btn-success" onclick="exportToCSV()">
+                                                <i class="fas fa-download me-2"></i>Export ke CSV
+                                            </button>
+                                            <button type="button" class="btn btn-info" onclick="getSummary()">
+                                                <i class="fas fa-chart-bar me-2"></i>Lihat Ringkasan
+                                            </button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Loading Indicator -->
+                <div class="loading-spinner text-center">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-2">Memproses permintaan...</p>
+                </div>
+                
+                <!-- Summary Section -->
+                <div id="summarySection" style="display: none;">
+                    <div class="card summary-card">
+                        <div class="card-header">
+                            <h5><i class="fas fa-chart-bar me-2"></i>Ringkasan Data Absen Lama</h5>
+                        </div>
+                        <div class="card-body" id="summaryContent">
+                            <!-- Summary content will be loaded here -->
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Preview Section -->
+                <div id="previewSection" style="display: none;">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5><i class="fas fa-eye me-2"></i>Preview Data Absen Lama</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-striped" id="previewTable">
+                                    <!-- Preview data will be loaded here -->
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Status Messages -->
+                <div id="statusMessages"></div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Set default dates (last 30 days)
+        window.onload = function() {
+            const endDate = new Date();
+            const startDate = new Date();
+            startDate.setDate(endDate.getDate() - 30);
+            
+            document.getElementById('endDate').value = endDate.toISOString().split('T')[0];
+            document.getElementById('startDate').value = startDate.toISOString().split('T')[0];
+        };
+        
+        function showLoading() {
+            document.querySelector('.loading-spinner').style.display = 'block';
+        }
+        
+        function hideLoading() {
+            document.querySelector('.loading-spinner').style.display = 'none';
+        }
+        
+        function showMessage(type, message) {
+            const statusDiv = document.getElementById('statusMessages');
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+            alertDiv.innerHTML = `
+                <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'danger' ? 'exclamation-circle' : 'info-circle'} me-2"></i>
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            statusDiv.appendChild(alertDiv);
+            
+            // Auto-remove after 5 seconds
+            setTimeout(() => {
+                if (alertDiv.parentNode) {
+                    alertDiv.remove();
+                }
+            }, 5000);
+        }
+        
+        function getFormData() {
+            return {
+                start_date: document.getElementById('startDate').value,
+                end_date: document.getElementById('endDate').value
+            };
+        }
+        
+        function validateForm() {
+            const data = getFormData();
+            if (!data.start_date || !data.end_date) {
+                showMessage('danger', 'Harap pilih tanggal mulai dan tanggal akhir.');
+                return false;
+            }
+            
+            if (new Date(data.start_date) > new Date(data.end_date)) {
+                showMessage('danger', 'Tanggal mulai harus sebelum tanggal akhir.');
+                return false;
+            }
+            
+            return true;
+        }
+        
+        async function previewData() {
+            if (!validateForm()) return;
+            
+            showLoading();
+            
+            try {
+                const data = getFormData();
+                const response = await fetch('/legacy-attendance/data', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    displayPreview(result.data);
+                    showMessage('success', `Ditemukan ${result.record_count} record untuk periode yang dipilih.`);
+                } else {
+                    showMessage('danger', `Error: ${result.message}`);
+                }
+            } catch (error) {
+                showMessage('danger', `Network error: ${error.message}`);
+            } finally {
+                hideLoading();
+            }
+        }
+        
+        function displayPreview(data) {
+            const previewSection = document.getElementById('previewSection');
+            const previewTable = document.getElementById('previewTable');
+            
+            if (!data || data.length === 0) {
+                previewTable.innerHTML = '<p class="text-muted">Tidak ada data ditemukan untuk periode yang dipilih.</p>';
+                previewSection.style.display = 'block';
+                return;
+            }
+            
+            // Display only first 10 records for preview
+            const previewData = data.slice(0, 10);
+            const headers = Object.keys(previewData[0]);
+            
+            let tableHTML = '<thead class="table-dark"><tr>';
+            headers.forEach(header => {
+                tableHTML += `<th>${header}</th>`;
+            });
+            tableHTML += '</tr></thead><tbody>';
+            
+            previewData.forEach(row => {
+                tableHTML += '<tr>';
+                headers.forEach(header => {
+                    tableHTML += `<td>${row[header] || ''}</td>`;
+                });
+                tableHTML += '</tr>';
+            });
+            
+            if (data.length > 10) {
+                tableHTML += `<tr><td colspan="${headers.length}" class="text-center text-muted">... and ${data.length - 10} more records</td></tr>`;
+            }
+            
+            tableHTML += '</tbody>';
+            previewTable.innerHTML = tableHTML;
+            previewSection.style.display = 'block';
+        }
+        
+        async function exportToCSV() {
+            if (!validateForm()) return;
+            
+            showLoading();
+            
+            try {
+                const data = getFormData();
+                const response = await fetch('/legacy-attendance/export/csv', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data)
+                });
+                
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    
+                    // Get filename from response header
+                    const contentDisposition = response.headers.get('Content-Disposition');
+                    let filename = 'legacy_attendance_export.csv';
+                    if (contentDisposition) {
+                        const filenameMatch = contentDisposition.match(/filename="(.+)"/);
+                        if (filenameMatch) {
+                            filename = filenameMatch[1];
+                        }
+                    }
+                    
+                    a.href = url;
+                    a.download = filename;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    window.URL.revokeObjectURL(url);
+                    
+                    showMessage('success', `File CSV berhasil diexport: ${filename}`);
+                } else {
+                    const result = await response.json();
+                    showMessage('danger', `Export gagal: ${result.message}`);
+                }
+            } catch (error) {
+                showMessage('danger', `Error export: ${error.message}`);
+            } finally {
+                hideLoading();
+            }
+        }
+        
+        async function getSummary() {
+            if (!validateForm()) return;
+            
+            showLoading();
+            
+            try {
+                const data = getFormData();
+                const response = await fetch('/legacy-attendance/summary', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    displaySummary(result.summary);
+                    showMessage('success', 'Ringkasan berhasil dibuat.');
+                } else {
+                    showMessage('danger', `Error: ${result.message}`);
+                }
+            } catch (error) {
+                showMessage('danger', `Network error: ${error.message}`);
+            } finally {
+                hideLoading();
+            }
+        }
+        
+        function displaySummary(summary) {
+            const summarySection = document.getElementById('summarySection');
+            const summaryContent = document.getElementById('summaryContent');
+            
+            let summaryHTML = `
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="card bg-primary text-white">
+                            <div class="card-body text-center">
+                                <h3>${summary.total_records}</h3>
+                                <p>Total Record</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card bg-success text-white">
+                            <div class="card-body text-center">
+                                <h3>${summary.unique_employees}</h3>
+                                <p>Karyawan Unik</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card bg-info text-white">
+                            <div class="card-body text-center">
+                                <h3>${summary.departments}</h3>
+                                <p>Departemen</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            if (summary.department_breakdown && summary.department_breakdown.length > 0) {
+                summaryHTML += `
+                    <div class="mt-4">
+                        <h6>Rincian per Departemen:</h6>
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Departemen</th>
+                                        <th>Jumlah Record</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                `;
+                
+                summary.department_breakdown.forEach(dept => {
+                    summaryHTML += `
+                        <tr>
+                            <td>${dept.department}</td>
+                            <td>${dept.count}</td>
+                        </tr>
+                    `;
+                });
+                
+                summaryHTML += '</tbody></table></div></div>';
+            }
+            
+            summaryContent.innerHTML = summaryHTML;
+            summarySection.style.display = 'block';
+        }
+    </script>
+    {% endblock %}
+</body>
+</html>
