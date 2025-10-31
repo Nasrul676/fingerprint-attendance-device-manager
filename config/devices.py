@@ -1,4 +1,4 @@
-"""
+m-"""
 Device Configuration for Fingerprint Attendance System
 Centralized configuration for all fingerprint devices
 """
@@ -6,117 +6,13 @@ Centralized configuration for all fingerprint devices
 # === Konfigurasi Mesin Absensi (Fingerprint Devices) ===
 # Tambahkan atau hapus mesin sesuai kebutuhan di dalam list ini
 FINGERPRINT_DEVICES = [
-    {
-        'name': '104',
-        'ip': '10.163.3.21',
-        'port': 4370,
-        'password': 1234567,
-        'description': 'P2-IN',
-        'location': 'P2',
-        'connection_type': 'zk'  # Standard ZK connection
-    },
-    {
-        'name': '111',
-        'ip': '10.163.3.176',
-        'port': 4370,
-        'password': 0,
-        'description': 'Pelet',
-        'location': 'Pelet',
-        'connection_type': 'zk'  # Standard ZK connection
-    },
-    {
-        'name': '110',
-        'ip': '10.163.2.159',
-        'port': 4370,
-        'password': 123456,
-        'description': 'Blowing',
-        'location': 'Blowing',
-        'connection_type': 'zk'  # Standard ZK connection
-    },
-    {
-        'name': '108',
-        'ip': '10.163.3.84',
-        'port': 4370,
-        'password': 0,
-        'description': 'Karung',
-        'location': 'Karung',
-        'connection_type': 'zk'  # Standard ZK connection
-    },
-    {
-        'name': '102',
-        'ip': '10.163.1.65',
-        'port': 4370,
-        'password': 0,
-        'description': 'P2-OUT',
-        'location': 'P2',
-        'connection_type': 'zk'  # Standard ZK connection
-    },
-    {
-        'name': '103',
-        'ip': '10.163.3.175',
-        'port': 4370,
-        'password': 12345,
-        'description': 'Makan',
-        'location': 'Makan',
-        'connection_type': 'zk'  # Standard ZK connection
-    },
-    {
-     
-        'name': '201',
-        'ip': '10.163.3.48',
-        'port': 7005,
-        'password': 12345,
-        'description': 'P1 Masuk',
-        'location': 'P1',
-        'connection_type': 'fingerspot_api',  # Fingerspot API connection
-        'api_config': {
-            'base_url': 'https://developer.fingerspot.io/api',  # Ganti dengan URL API Fingerspot yang benar
-            'device_id': 'C262D065DF211A2E',
-            'api_key': 'H6LQCS9UWXC3IK4S',  # Ganti dengan API key yang valid
-            'timeout': 30,
-            'retry_count': 3,
-            'cloud_id': 'C262D065DF211A2E'
-        }
-    },
-    {
-        'name': 'Absensi Online',
-        'ip': 'online',  # IP tidak relevan untuk API-only
-        'port': 0,       # Port tidak relevan
-        'password': 0,   # Password tidak relevan
-        'description': 'Absensi Online via API',
-        'location': 'Online',
-        'connection_type': 'online_attendance',  # Tipe koneksi baru
-        'api_config': {
-            'base_url': 'https://pkpapi.pradha.co.id/api',
-            'endpoint': '/mobileattgetall', # Endpoint yang benar
-            'api_key': '', # Kosongkan jika tidak diperlukan
-            'timeout': 30,
-            'retry_count': 3
-        }
-    },
-    {
-        'name': '203',
-        'ip': '10.163.3.228',
-        'port': 4370,
-        'password': 12345,
-        'description': 'P1 Pulang',
-        'location': 'P1',
-        'connection_type': 'fingerspot_api',  # Fingerspot API connection
-        'api_config': {
-            'base_url': 'https://developer.fingerspot.io/api',  # Ganti dengan URL API Fingerspot yang benar
-            'device_id': '203',
-            'api_key': 'H6LQCS9UWXC3IK4S',  # Ganti dengan API key yang valid
-            'timeout': 30,
-            'retry_count': 3,
-            'cloud_id': 'C262D065DF0F1D2E'
-        }
-    }
+    
 ]
 
 # === Fingerspot API Configuration ===
 # Konfigurasi khusus untuk API Fingerspot Developer
 FINGERSPOT_API_CONFIG = {
-    'base_url': 'https://developer.fingerspot.io/api',  # Ganti dengan URL API yang benar
+    'base_url': 'exmple.com',  # Ganti dengan URL API yang benar
     'version': 'v1',
     'endpoints': {
         'attendance': '/get_attlog',  # Updated endpoint for attendance logs
