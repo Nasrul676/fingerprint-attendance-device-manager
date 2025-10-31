@@ -1,4 +1,4 @@
-"""
+m-"""
 Device Configuration for Fingerprint Attendance System
 Centralized configuration for all fingerprint devices
 """
@@ -12,7 +12,7 @@ FINGERPRINT_DEVICES = [
 # === Fingerspot API Configuration ===
 # Konfigurasi khusus untuk API Fingerspot Developer
 FINGERSPOT_API_CONFIG = {
-    'base_url': 'https://developer.fingerspot.io/api',  # Ganti dengan URL API yang benar
+    'base_url': 'exmple.com',  # Ganti dengan URL API yang benar
     'version': 'v1',
     'endpoints': {
         'attendance': '/get_attlog',  # Updated endpoint for attendance logs
