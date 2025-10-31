@@ -2,13 +2,26 @@
 Controller untuk mengelola data absensi yang gagal (gagalabsens)
 """
 from flask import render_template, request, jsonify
+from werkzeug.utils import secure_filename
+import os
+import tempfile
 from app.models.attendance import AttendanceModel
+from app.services.failed_attendance_upload_service import failed_attendance_upload_service
 
 class FailedLogController:
     """Controller untuk menampilkan dan mengelola data absensi yang gagal"""
     
     def __init__(self):
         self.attendance_model = AttendanceModel()
+        self.upload_service = failed_attendance_upload_service
+        
+        # Allowed file extensions
+        self.ALLOWED_EXTENSIONS = {'xlsx', 'xls'}
+    
+    def _allowed_file(self, filename):
+        """Check if file extension is allowed"""
+        return '.' in filename and \
+               filename.rsplit('.', 1)[1].lower() in self.ALLOWED_EXTENSIONS
     
     def failed_logs_dashboard(self):
         """Menampilkan dashboard untuk data absensi yang gagal"""
@@ -18,6 +31,7 @@ class FailedLogController:
             per_page = request.args.get('per_page', 50, type=int)
             start_date = request.args.get('start_date', '')
             end_date = request.args.get('end_date', '')
+            pin_filter = request.args.get('pin_filter', '')
             
             # Limit per_page to prevent excessive load
             per_page = min(per_page, 100)
@@ -26,6 +40,7 @@ class FailedLogController:
             logs, total, total_pages = self.attendance_model.get_failed_attendance_logs(
                 start_date if start_date else None,
                 end_date if end_date else None,
+                pin_filter if pin_filter else None,
                 page,
                 per_page
             )
@@ -42,6 +57,7 @@ class FailedLogController:
                 per_page=per_page,
                 start_date=start_date,
                 end_date=end_date,
+                pin_filter=pin_filter,
                 stats=stats
             )
             
@@ -109,4 +125,108 @@ class FailedLogController:
             return jsonify({
                 'success': False,
                 'error': str(e)
+            }), 500
+    
+    def upload_excel_file(self):
+        """Upload dan proses file Excel gagal absensi"""
+        try:
+            # Check if file is present
+            if 'excel_file' not in request.files:
+                return jsonify({
+                    'success': False,
+                    'message': 'No file selected'
+                }), 400
+            
+            file = request.files['excel_file']
+            
+            # Check if file is selected
+            if file.filename == '':
+                return jsonify({
+                    'success': False,
+                    'message': 'No file selected'
+                }), 400
+            
+            # Check file extension
+            if not self._allowed_file(file.filename):
+                return jsonify({
+                    'success': False,
+                    'message': 'File type not allowed. Please upload Excel file (.xlsx or .xls)'
+                }), 400
+            
+            # Save file temporarily
+            filename = secure_filename(file.filename)
+            temp_dir = tempfile.gettempdir()
+            temp_path = os.path.join(temp_dir, f"upload_{filename}")
+            
+            file.save(temp_path)
+            
+            # Process the Excel file
+            success, message, stats = self.upload_service.process_excel_upload(temp_path)
+            
+            if success:
+                return jsonify({
+                    'success': True,
+                    'message': message,
+                    'statistics': stats
+                })
+            else:
+                return jsonify({
+                    'success': False,
+                    'message': message,
+                    'statistics': stats
+                }), 400
+                
+        except Exception as e:
+            return jsonify({
+                'success': False,
+                'message': f'Upload error: {str(e)}'
+            }), 500
+    
+    def validate_excel_template(self):
+        """Validate Excel file structure without processing"""
+        try:
+            if 'excel_file' not in request.files:
+                return jsonify({
+                    'success': False,
+                    'message': 'No file selected'
+                }), 400
+            
+            file = request.files['excel_file']
+            
+            if file.filename == '':
+                return jsonify({
+                    'success': False,
+                    'message': 'No file selected'
+                }), 400
+            
+            if not self._allowed_file(file.filename):
+                return jsonify({
+                    'success': False,
+                    'message': 'File type not allowed. Please upload Excel file (.xlsx or .xls)'
+                }), 400
+            
+            # Save file temporarily for validation
+            filename = secure_filename(file.filename)
+            temp_dir = tempfile.gettempdir()
+            temp_path = os.path.join(temp_dir, f"validate_{filename}")
+            
+            file.save(temp_path)
+            
+            # Validate file structure
+            success, message, missing_columns = self.upload_service.validate_excel_template(temp_path)
+            
+            # Cleanup temp file
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
+            
+            return jsonify({
+                'success': success,
+                'message': message,
+                'missing_columns': missing_columns
+            })
+            
+        except Exception as e:
+            return jsonify({
+                'success': False,
+                'message': f'Validation error: {str(e)}'
             }), 500

@@ -1,0 +1,412 @@
+{% extends "base.html" %}
+
+{% block title %}spJamkerja Scheduler Dashboard{% endblock %}
+
+{% block extra_css %}
+<style>
+    .badge {
+        font-size: 0.9rem;
+        padding: 0.5rem 0.75rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <h2 class="mb-4">
+        <i class="fas fa-clock"></i> spJamkerja Scheduler Dashboard
+    </h2>
+
+    <!-- Status Card -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="fas fa-info-circle"></i> Scheduler Status</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row" id="schedulerStatus">
+                        <div class="col-md-3">
+                            <div class="text-center p-3 border rounded">
+                                <h6 class="text-muted">Status</h6>
+                                <h4 id="statusRunning">
+                                    <span class="badge bg-secondary">Loading...</span>
+                                </h4>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center p-3 border rounded">
+                                <h6 class="text-muted">Interval</h6>
+                                <h4 id="statusInterval">-</h4>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center p-3 border rounded">
+                                <h6 class="text-muted">Processing</h6>
+                                <h4 id="statusProcessing">
+                                    <span class="badge bg-secondary">-</span>
+                                </h4>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center p-3 border rounded">
+                                <h6 class="text-muted">Next Execution</h6>
+                                <h4 id="statusNextExec">-</h4>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Control Buttons -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0"><i class="fas fa-cogs"></i> Scheduler Controls</h5>
+                </div>
+                <div class="card-body">
+                    <div class="btn-group mr-2" role="group">
+                        <button type="button" class="btn btn-success" id="btnStart">
+                            <i class="fas fa-play"></i> Start Scheduler
+                        </button>
+                        <button type="button" class="btn btn-danger" id="btnStop">
+                            <i class="fas fa-stop"></i> Stop Scheduler
+                        </button>
+                    </div>
+                    <button type="button" class="btn btn-warning" id="btnForceExecute">
+                        <i class="fas fa-bolt"></i> Force Execute Now
+                    </button>
+                    <button type="button" class="btn btn-info" id="btnSetInterval">
+                        <i class="fas fa-cog"></i> Set Interval
+                    </button>
+                    <button type="button" class="btn btn-secondary" id="btnRefresh">
+                        <i class="fas fa-sync"></i> Refresh Status
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistics -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0"><i class="fas fa-chart-bar"></i> Execution Statistics</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <div class="text-center p-3 border rounded bg-light">
+                                <h6 class="text-muted">Total Executions</h6>
+                                <h3 id="statsTotalExec" class="text-primary">0</h3>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center p-3 border rounded bg-light">
+                                <h6 class="text-muted">Success</h6>
+                                <h3 id="statsSuccess" class="text-success">0</h3>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center p-3 border rounded bg-light">
+                                <h6 class="text-muted">Failures</h6>
+                                <h3 id="statsFailure" class="text-danger">0</h3>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center p-3 border rounded bg-light">
+                                <h6 class="text-muted">Last Duration</h6>
+                                <h3 id="statsLastDuration" class="text-info">-</h3>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row mt-3">
+                        <div class="col-md-6">
+                            <p class="mb-1"><strong>Last Execution:</strong> <span id="statsLastExec">-</span></p>
+                        </div>
+                        <div class="col-md-6">
+                            <p class="mb-1"><strong>Last Status:</strong> <span id="statsLastStatus" class="badge bg-secondary">-</span></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Info Card -->
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card border-warning">
+                <div class="card-header bg-warning">
+                    <h5 class="mb-0"><i class="fas fa-info-circle"></i> How It Works</h5>
+                </div>
+                <div class="card-body">
+                    <ul class="mb-0">
+                        <li><strong>Automatic Execution:</strong> Scheduler runs spJamkerja automatically at configured intervals</li>
+                        <li><strong>Default Interval:</strong> Every 3 hours (configurable)</li>
+                        <li><strong>Date Range:</strong> Automatically processes data from yesterday to today</li>
+                        <li><strong>Overlap Prevention:</strong> Won't start new execution if previous one is still running</li>
+                        <li><strong>Auto-Start:</strong> Scheduler starts automatically when application launches</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Set Interval Modal -->
+<div class="modal fade" id="setIntervalModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Set Scheduler Interval</h5>
+                <button type="button" class="close" data-dismiss="modal">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="intervalHours" class="form-label">Interval (hours)</label>
+                    <input type="number" class="form-control" id="intervalHours" 
+                           min="0.5" step="0.5" value="3" placeholder="Enter hours (min: 0.5)">
+                    <small class="form-text text-muted">
+                        Minimum: 0.5 hours (30 minutes). Recommended: 3-6 hours for 30-45 min execution time.
+                    </small>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="btnSaveInterval">Save Interval</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    console.log('[Scheduler] Dashboard loaded, jQuery version:', $.fn.jquery);
+    console.log('[Scheduler] Buttons found:', {
+        start: $('#btnStart').length,
+        stop: $('#btnStop').length,
+        force: $('#btnForceExecute').length,
+        interval: $('#btnSetInterval').length,
+        refresh: $('#btnRefresh').length
+    });
+    
+    // Load status on page load
+    loadSchedulerStatus();
+    
+    // Auto-refresh every 10 seconds
+    setInterval(loadSchedulerStatus, 10000);
+    
+    // Start scheduler
+    $('#btnStart').click(function() {
+        console.log('[Scheduler] Start button clicked');
+        $(this).prop('disabled', true);
+        $.ajax({
+            url: '/scheduler/start',
+            method: 'POST',
+            success: function(response) {
+                console.log('[Scheduler] Start response:', response);
+                if (response.success) {
+                    toastr.success(response.message);
+                    loadSchedulerStatus();
+                } else {
+                    toastr.error(response.message);
+                }
+            },
+            error: function(xhr) {
+                console.error('[Scheduler] Start error:', xhr);
+                toastr.error('Error starting scheduler');
+            },
+            complete: function() {
+                $('#btnStart').prop('disabled', false);
+            }
+        });
+    });
+    
+    // Stop scheduler
+    $('#btnStop').click(function() {
+        if (!confirm('Are you sure you want to stop the scheduler?')) return;
+        
+        $(this).prop('disabled', true);
+        $.ajax({
+            url: '/scheduler/stop',
+            method: 'POST',
+            success: function(response) {
+                if (response.success) {
+                    toastr.success(response.message);
+                    loadSchedulerStatus();
+                } else {
+                    toastr.error(response.message);
+                }
+            },
+            error: function(xhr) {
+                toastr.error('Error stopping scheduler');
+            },
+            complete: function() {
+                $('#btnStop').prop('disabled', false);
+            }
+        });
+    });
+    
+    // Force execute
+    $('#btnForceExecute').click(function() {
+        if (!confirm('Force execute spJamkerja now? This may take 30-45 minutes.')) return;
+        
+        $(this).prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Executing...');
+        
+        $.ajax({
+            url: '/scheduler/force-execute',
+            method: 'POST',
+            timeout: 7200000, // 2 hours timeout
+            success: function(response) {
+                if (response.success) {
+                    const duration = response.duration_seconds;
+                    const minutes = Math.floor(duration / 60);
+                    toastr.success(`Execution completed in ${minutes} minutes (${duration.toFixed(1)}s)`);
+                    loadSchedulerStatus();
+                } else {
+                    toastr.error(response.message);
+                }
+            },
+            error: function(xhr) {
+                toastr.error('Error during forced execution');
+            },
+            complete: function() {
+                $('#btnForceExecute').prop('disabled', false).html('<i class="fas fa-bolt"></i> Force Execute Now');
+            }
+        });
+    });
+    
+    // Set interval button
+    $('#btnSetInterval').click(function() {
+        $('#setIntervalModal').modal('show');
+    });
+    
+    // Save interval
+    $('#btnSaveInterval').click(function() {
+        const hours = parseFloat($('#intervalHours').val());
+        
+        if (!hours || hours < 0.5) {
+            toastr.error('Please enter a valid interval (minimum 0.5 hours)');
+            return;
+        }
+        
+        $.ajax({
+            url: '/scheduler/set-interval',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({ hours: hours }),
+            success: function(response) {
+                if (response.success) {
+                    toastr.success(response.message);
+                    $('#setIntervalModal').modal('hide');
+                    loadSchedulerStatus();
+                } else {
+                    toastr.error(response.message);
+                }
+            },
+            error: function(xhr) {
+                toastr.error('Error setting interval');
+            }
+        });
+    });
+    
+    // Refresh button
+    $('#btnRefresh').click(function() {
+        loadSchedulerStatus();
+        toastr.info('Status refreshed');
+    });
+    
+    function loadSchedulerStatus() {
+        $.ajax({
+            url: '/scheduler/status',
+            method: 'GET',
+            success: function(response) {
+                if (response.success) {
+                    const data = response.data;
+                    
+                    // Status
+                    if (data.running) {
+                        $('#statusRunning').html('<span class="badge bg-success">Running</span>');
+                        $('#btnStart').prop('disabled', true);
+                        $('#btnStop').prop('disabled', false);
+                    } else {
+                        $('#statusRunning').html('<span class="badge bg-danger">Stopped</span>');
+                        $('#btnStart').prop('disabled', false);
+                        $('#btnStop').prop('disabled', true);
+                    }
+                    
+                    // Processing
+                    if (data.is_processing) {
+                        $('#statusProcessing').html('<span class="badge bg-warning text-dark">Processing...</span>');
+                        $('#btnForceExecute').prop('disabled', true);
+                    } else {
+                        $('#statusProcessing').html('<span class="badge bg-success">Idle</span>');
+                        $('#btnForceExecute').prop('disabled', false);
+                    }
+                    
+                    // Interval
+                    $('#statusInterval').text(data.interval_hours.toFixed(1) + ' hours');
+                    
+                    // Next execution
+                    if (data.next_execution_in_seconds !== null) {
+                        const minutes = Math.floor(data.next_execution_in_seconds / 60);
+                        const seconds = data.next_execution_in_seconds % 60;
+                        $('#statusNextExec').text(minutes + 'm ' + seconds + 's');
+                    } else {
+                        $('#statusNextExec').text('-');
+                    }
+                    
+                    // Statistics
+                    $('#statsTotalExec').text(data.execution_count);
+                    $('#statsSuccess').text(data.success_count);
+                    $('#statsFailure').text(data.failure_count);
+                    
+                    if (data.last_execution_duration) {
+                        const minutes = Math.floor(data.last_execution_duration / 60);
+                        $('#statsLastDuration').text(minutes + ' min');
+                    } else {
+                        $('#statsLastDuration').text('-');
+                    }
+                    
+                    if (data.last_execution_time) {
+                        $('#statsLastExec').text(new Date(data.last_execution_time).toLocaleString());
+                    } else {
+                        $('#statsLastExec').text('Never');
+                    }
+                    
+                    if (data.last_execution_status) {
+                        let badgeClass = 'bg-secondary';
+                        if (data.last_execution_status === 'success') badgeClass = 'bg-success';
+                        else if (data.last_execution_status === 'failed') badgeClass = 'bg-danger';
+                        else if (data.last_execution_status === 'error') badgeClass = 'bg-warning text-dark';
+                        
+                        $('#statsLastStatus').removeClass().addClass('badge ' + badgeClass)
+                            .text(data.last_execution_status.toUpperCase());
+                    } else {
+                        $('#statsLastStatus').removeClass().addClass('badge bg-secondary').text('-');
+                    }
+                } else {
+                    console.error('API returned success=false:', response.message);
+                    toastr.error('Failed to load status: ' + response.message);
+                }
+            },
+            error: function(xhr, status, error) {
+                console.error('Error loading scheduler status:', status, error, xhr.responseText);
+                $('#statusRunning').html('<span class="badge bg-secondary">Error Loading</span>');
+                toastr.error('Cannot connect to scheduler API. Make sure Flask app is running.');
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

@@ -8,6 +8,7 @@ from app.controllers.vps_push_controller import vps_push_controller
 from app.controllers.legacy_attendance_controller import legacy_attendance_controller
 
 from app.controllers.attendance_worker_controller import attendance_worker_controller
+from app.utils.auth_middleware import login_required
 
 # Create blueprints
 main_bp = Blueprint('main', __name__)
@@ -29,10 +30,12 @@ failed_log_controller = FailedLogController()
 
 # Main routes
 @main_bp.route('/')
+@login_required
 def index():
     return redirect(url_for('fplog.fplog_dashboard'))
 
 @main_bp.route('/export')
+@login_required
 def export_csv():
     return main_controller.export_csv()
 
@@ -153,6 +156,14 @@ def search_failed_logs():
 def get_failed_logs_stats():
     return failed_log_controller.get_failed_logs_stats()
 
+@failed_logs_bp.route('/upload', methods=['POST'])
+def upload_excel_file():
+    return failed_log_controller.upload_excel_file()
+
+@failed_logs_bp.route('/validate-template', methods=['POST'])
+def validate_excel_template():
+    return failed_log_controller.validate_excel_template()
+
 
 
 # Attendance Worker routes
@@ -208,6 +219,7 @@ def get_vps_statistics():
     """Get VPS push statistics"""
     return vps_push_controller.get_vps_statistics()
 
+# AttRecord endpoints
 @vps_push_bp.route('/preview', methods=['POST'])
 def get_attrecord_preview():
     """Get preview of AttRecord data without pushing"""
@@ -227,6 +239,48 @@ def push_attrecord_by_date():
 def push_attrecord_for_pins():
     """Push AttRecord data for specific PINs to VPS"""
     return vps_push_controller.push_attrecord_for_pins()
+
+# WorkingHours endpoints
+@vps_push_bp.route('/workinghours/preview', methods=['POST'])
+def get_workinghours_preview():
+    """Get preview of WorkingHours data without pushing"""
+    return vps_push_controller.get_workinghours_preview()
+
+@vps_push_bp.route('/workinghours/push/today', methods=['POST'])
+def push_workinghours_today():
+    """Push WorkingHours data from yesterday to today (2 days) to VPS"""
+    return vps_push_controller.push_workinghours_today()
+
+@vps_push_bp.route('/workinghours/push/date-range', methods=['POST'])
+def push_workinghours_by_date():
+    """Push WorkingHours data by date range to VPS"""
+    return vps_push_controller.push_workinghours_by_date()
+
+@vps_push_bp.route('/workinghours/push/pins', methods=['POST'])
+def push_workinghours_for_pins():
+    """Push WorkingHours data for specific PINs to VPS"""
+    return vps_push_controller.push_workinghours_for_pins()
+
+# FPLog VPS Push routes
+@vps_push_bp.route('/fplog/preview', methods=['POST'])
+def get_fplog_preview():
+    """Get preview of FPLog data to be pushed to VPS"""
+    return vps_push_controller.get_fplog_preview()
+
+@vps_push_bp.route('/fplog/push/today', methods=['POST'])
+def push_fplog_today():
+    """Push FPLog data for today (yesterday to today) to VPS /bulk-upsert"""
+    return vps_push_controller.push_fplog_today()
+
+@vps_push_bp.route('/fplog/push/date-range', methods=['POST'])
+def push_fplog_by_date():
+    """Push FPLog data by date range to VPS /bulk-upsert"""
+    return vps_push_controller.push_fplog_by_date()
+
+@vps_push_bp.route('/fplog/push/pins', methods=['POST'])
+def push_fplog_for_pins():
+    """Push FPLog data for specific PINs to VPS /bulk-upsert"""
+    return vps_push_controller.push_fplog_for_pins()
 
 # Legacy Attendance routes
 @legacy_attendance_bp.route('/')

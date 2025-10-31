@@ -5,7 +5,7 @@ Controller untuk menangani API requests terkait VPS push operations
 
 import json
 from flask import Blueprint, request, jsonify, session, render_template
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from app.services.vps_push_service import vps_push_service
 from config.logging_config import get_background_logger
 
@@ -35,14 +35,14 @@ class VPSPushController:
             data = request.get_json()
             
             if not data:
-                return jsonify({
-                    'success': False,
-                    'message': 'No data provided'
-                }), 400
-            
-            # Get parameters
-            start_date = data.get('start_date')
-            end_date = data.get('end_date')
+                today = date.today()
+                yesterday = today - timedelta(days=1)
+                start_date = yesterday.strftime('%Y-%m-%d')
+                end_date = today.strftime('%Y-%m-%d')
+            else:
+                # Get parameters
+                start_date = data.get('start_date')
+                end_date = data.get('end_date')
             pins = data.get('pins', [])
             
             # Validate required parameters
@@ -112,23 +112,7 @@ class VPSPushController:
     def push_attrecord_today(self):
         """Push today's AttRecord data"""
         try:
-            data = request.get_json() or {}
-            pins = data.get('pins', [])
-            
-            # Validate pins if provided
-            if pins and not isinstance(pins, list):
-                return jsonify({
-                    'success': False,
-                    'message': 'pins must be an array'
-                }), 400
-            
-            # Convert pins to strings
-            pins = [str(pin) for pin in pins] if pins else None
-            
-            logger.info(f"Pushing today's AttRecord data - PINs: {pins}")
-            
-            # Push today's data
-            success, message = self.vps_push_service.push_attrecord_today(pins)
+            success, message = self.vps_push_service.push_attrecord_today()
             
             today = datetime.now().strftime('%Y-%m-%d')
             
@@ -138,7 +122,6 @@ class VPSPushController:
                     'success': True,
                     'message': message,
                     'date': today,
-                    'pins': pins,
                     'timestamp': datetime.now().isoformat()
                 })
             else:
@@ -146,8 +129,7 @@ class VPSPushController:
                 return jsonify({
                     'success': False,
                     'message': message,
-                    'date': today,
-                    'pins': pins
+                    'date': today
                 }), 500
         
         except Exception as e:
@@ -313,13 +295,22 @@ class VPSPushController:
             
             logger.info(f"Getting AttRecord preview - Start: {start_date}, End: {end_date}, PINs: {pins}, Limit: {limit}")
             
-            # Get data from database
-            data = self.vps_push_service.get_attrecord_data(start_date, end_date, pins, limit)
+            # Get sample payload with the new format
+            payload_data = self.vps_push_service.get_sample_payload(start_date, end_date, pins, limit)
+            
+            if 'error' in payload_data:
+                return jsonify({
+                    'success': False,
+                    'message': payload_data['error']
+                }), 500
+            
+            records = payload_data.get('records', [])
             
             return jsonify({
                 'success': True,
-                'data': data,
-                'record_count': len(data),
+                'data': records,
+                'record_count': len(records),
+                'payload_preview': payload_data,
                 'start_date': start_date,
                 'end_date': end_date,
                 'pins': pins,
@@ -333,6 +324,532 @@ class VPSPushController:
                 'success': False,
                 'message': f'Internal error: {str(e)}'
             }), 500
+    
+    # ========== WORKINGHOURS ENDPOINTS ==========
+    
+    def push_workinghours_by_date(self):
+        """Push WorkingHours data by date range"""
+        try:
+            data = request.get_json()
+            
+            if not data:
+                today = date.today()
+                yesterday = today - timedelta(days=1)
+                start_date = yesterday.strftime('%Y-%m-%d')
+                end_date = today.strftime('%Y-%m-%d')
+            else:
+                # Get parameters
+                start_date = data.get('start_date')
+                end_date = data.get('end_date')
+                pins = data.get('pins', [])
+            
+            # Validate required parameters
+            if not start_date:
+                return jsonify({
+                    'success': False,
+                    'message': 'start_date is required'
+                }), 400
+            
+            if not end_date:
+                end_date = start_date
+            
+            # Validate date format
+            try:
+                datetime.strptime(start_date, '%Y-%m-%d')
+                datetime.strptime(end_date, '%Y-%m-%d')
+            except ValueError:
+                return jsonify({
+                    'success': False,
+                    'message': 'Invalid date format. Use YYYY-MM-DD'
+                }), 400
+            
+            # Validate pins if provided
+            if pins and not isinstance(pins, list):
+                return jsonify({
+                    'success': False,
+                    'message': 'pins must be an array'
+                }), 400
+            
+            # Convert pins to strings
+            pins = [str(pin) for pin in pins] if pins else None
+            
+            logger.info(f"Pushing WorkingHours data - Start: {start_date}, End: {end_date}, PINs: {pins}")
+            
+            # Push data to VPS
+            success, message = self.vps_push_service.push_workinghours_by_date_range(
+                start_date, end_date, pins
+            )
+            
+            if success:
+                logger.info(f"WorkingHours push successful: {message}")
+                return jsonify({
+                    'success': True,
+                    'message': message,
+                    'start_date': start_date,
+                    'end_date': end_date,
+                    'pins': pins,
+                    'timestamp': datetime.now().isoformat()
+                })
+            else:
+                logger.error(f"WorkingHours push failed: {message}")
+                return jsonify({
+                    'success': False,
+                    'message': message,
+                    'start_date': start_date,
+                    'end_date': end_date,
+                    'pins': pins
+                }), 500
+        
+        except Exception as e:
+            logger.error(f"Error in push_workinghours_by_date: {e}")
+            return jsonify({
+                'success': False,
+                'message': f'Internal error: {str(e)}'
+            }), 500
+    
+    def push_workinghours_today(self):
+        """Push WorkingHours data from yesterday to today"""
+        try:
+            success, message = self.vps_push_service.push_workinghours_today()
+            
+            today = datetime.now().strftime('%Y-%m-%d')
+            yesterday = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
+            
+            if success:
+                logger.info(f"WorkingHours push (yesterday-today) successful: {message}")
+                return jsonify({
+                    'success': True,
+                    'message': message,
+                    'start_date': yesterday,
+                    'end_date': today,
+                    'timestamp': datetime.now().isoformat()
+                })
+            else:
+                logger.error(f"WorkingHours push (yesterday-today) failed: {message}")
+                return jsonify({
+                    'success': False,
+                    'message': message,
+                    'start_date': yesterday,
+                    'end_date': today
+                }), 500
+        
+        except Exception as e:
+            logger.error(f"Error in push_workinghours_today: {e}")
+            return jsonify({
+                'success': False,
+                'message': f'Internal error: {str(e)}'
+            }), 500
+    
+    def push_workinghours_for_pins(self):
+        """Push WorkingHours data for specific PINs"""
+        try:
+            data = request.get_json()
+            
+            if not data:
+                return jsonify({
+                    'success': False,
+                    'message': 'No data provided'
+                }), 400
+            
+            # Get parameters
+            pins = data.get('pins', [])
+            days_back = data.get('days_back', 7)
+            
+            # Validate required parameters
+            if not pins:
+                return jsonify({
+                    'success': False,
+                    'message': 'pins array is required'
+                }), 400
+            
+            if not isinstance(pins, list):
+                return jsonify({
+                    'success': False,
+                    'message': 'pins must be an array'
+                }), 400
+            
+            # Validate days_back
+            try:
+                days_back = int(days_back)
+                if days_back < 1 or days_back > 365:
+                    days_back = 7
+            except (ValueError, TypeError):
+                days_back = 7
+            
+            # Convert pins to strings
+            pins = [str(pin) for pin in pins]
+            
+            logger.info(f"Pushing WorkingHours data for PINs: {pins}, Days back: {days_back}")
+            
+            # Push data for specific PINs
+            success, message = self.vps_push_service.push_workinghours_for_pins(pins, days_back)
+            
+            if success:
+                logger.info(f"WorkingHours push for PINs successful: {message}")
+                return jsonify({
+                    'success': True,
+                    'message': message,
+                    'pins': pins,
+                    'days_back': days_back,
+                    'timestamp': datetime.now().isoformat()
+                })
+            else:
+                logger.error(f"WorkingHours push for PINs failed: {message}")
+                return jsonify({
+                    'success': False,
+                    'message': message,
+                    'pins': pins,
+                    'days_back': days_back
+                }), 500
+        
+        except Exception as e:
+            logger.error(f"Error in push_workinghours_for_pins: {e}")
+            return jsonify({
+                'success': False,
+                'message': f'Internal error: {str(e)}'
+            }), 500
+    
+    def get_workinghours_preview(self):
+        """Get preview of WorkingHours data (without pushing)"""
+        try:
+            data = request.get_json() or {}
+            
+            # Get parameters
+            start_date = data.get('start_date')
+            end_date = data.get('end_date')
+            pins = data.get('pins', [])
+            limit = data.get('limit', 100)
+            
+            # Set default dates if not provided
+            if not start_date:
+                start_date = datetime.now().strftime('%Y-%m-%d')
+            if not end_date:
+                end_date = start_date
+            
+            # Validate date format
+            try:
+                datetime.strptime(start_date, '%Y-%m-%d')
+                datetime.strptime(end_date, '%Y-%m-%d')
+            except ValueError:
+                return jsonify({
+                    'success': False,
+                    'message': 'Invalid date format. Use YYYY-MM-DD'
+                }), 400
+            
+            # Validate limit
+            try:
+                limit = int(limit)
+                if limit < 1 or limit > 1000:
+                    limit = 100
+            except (ValueError, TypeError):
+                limit = 100
+            
+            # Convert pins to strings
+            pins = [str(pin) for pin in pins] if pins else None
+            
+            logger.info(f"Getting WorkingHours preview - Start: {start_date}, End: {end_date}, PINs: {pins}, Limit: {limit}")
+            
+            # Get sample payload with the new format
+            payload_data = self.vps_push_service.get_workinghours_preview(start_date, end_date, pins, limit)
+            
+            if 'error' in payload_data:
+                return jsonify({
+                    'success': False,
+                    'message': payload_data['error']
+                }), 500
+            
+            records = payload_data.get('records', [])
+            
+            return jsonify({
+                'success': True,
+                'data': records,
+                'record_count': len(records),
+                'payload_preview': payload_data,
+                'start_date': start_date,
+                'end_date': end_date,
+                'pins': pins,
+                'limit': limit,
+                'timestamp': datetime.now().isoformat()
+            })
+        
+        except Exception as e:
+            logger.error(f"Error in get_workinghours_preview: {e}")
+            return jsonify({
+                'success': False,
+                'message': f'Internal error: {str(e)}'
+            }), 500
+    
+    # =========================================================================
+    # FPLOG PUSH METHODS
+    # =========================================================================
+    
+    def push_fplog_by_date(self):
+        """Push FPLog data by date range"""
+        try:
+            data = request.get_json()
+            
+            if not data:
+                today = date.today()
+                yesterday = today - timedelta(days=1)
+                start_date = yesterday.strftime('%Y-%m-%d')
+                end_date = today.strftime('%Y-%m-%d')
+            else:
+                start_date = data.get('start_date')
+                end_date = data.get('end_date')
+            
+            # Validate required parameters
+            if not start_date:
+                return jsonify({
+                    'success': False,
+                    'message': 'start_date is required'
+                }), 400
+            
+            # Use start_date as end_date if not provided
+            if not end_date:
+                end_date = start_date
+            
+            # Validate date format
+            try:
+                datetime.strptime(start_date, '%Y-%m-%d')
+                datetime.strptime(end_date, '%Y-%m-%d')
+            except ValueError:
+                return jsonify({
+                    'success': False,
+                    'message': 'Invalid date format. Use YYYY-MM-DD'
+                }), 400
+            
+            logger.info(f"Pushing FPLog data - Start: {start_date}, End: {end_date}")
+            
+            # Push data
+            success, message = self.vps_push_service.push_fplog_by_date_range(start_date, end_date)
+            
+            if success:
+                # Extract record count from message
+                record_count = 0
+                if 'records' in message:
+                    try:
+                        record_count = int(message.split()[2])
+                    except:
+                        pass
+                
+                return jsonify({
+                    'success': True,
+                    'message': message,
+                    'record_count': record_count,
+                    'start_date': start_date,
+                    'end_date': end_date
+                })
+            else:
+                return jsonify({
+                    'success': False,
+                    'message': message
+                }), 500
+        
+        except Exception as e:
+            logger.error(f"Error in push_fplog_by_date: {e}")
+            return jsonify({
+                'success': False,
+                'message': f'Internal error: {str(e)}'
+            }), 500
+    
+    def push_fplog_today(self):
+        """Push FPLog data for today (yesterday to today)"""
+        try:
+            logger.info("Pushing FPLog data for today (yesterday to today)")
+            
+            # Get date range
+            today = date.today()
+            yesterday = today - timedelta(days=1)
+            start_date = yesterday.strftime('%Y-%m-%d')
+            end_date = today.strftime('%Y-%m-%d')
+            
+            # Push data
+            success, message = self.vps_push_service.push_fplog_today()
+            
+            if success:
+                # Extract record count from message
+                record_count = 0
+                if 'records' in message:
+                    try:
+                        record_count = int(message.split()[2])
+                    except:
+                        pass
+                
+                return jsonify({
+                    'success': True,
+                    'message': message,
+                    'record_count': record_count,
+                    'start_date': start_date,
+                    'end_date': end_date
+                })
+            else:
+                return jsonify({
+                    'success': False,
+                    'message': message
+                }), 500
+        
+        except Exception as e:
+            logger.error(f"Error in push_fplog_today: {e}")
+            return jsonify({
+                'success': False,
+                'message': f'Internal error: {str(e)}'
+            }), 500
+    
+    def push_fplog_for_pins(self):
+        """Push FPLog data for specific employee PINs"""
+        try:
+            data = request.get_json()
+            
+            if not data:
+                return jsonify({
+                    'success': False,
+                    'message': 'Request body is required'
+                }), 400
+            
+            # Get parameters
+            pins = data.get('pins', [])
+            days_back = data.get('days_back', 7)
+            
+            # Validate pins
+            if not pins or len(pins) == 0:
+                return jsonify({
+                    'success': False,
+                    'message': 'pins array is required and cannot be empty'
+                }), 400
+            
+            # Convert pins to strings and validate
+            pins = [str(pin).strip() for pin in pins if pin]
+            if len(pins) == 0:
+                return jsonify({
+                    'success': False,
+                    'message': 'Valid PINs are required'
+                }), 400
+            
+            # Validate days_back
+            try:
+                days_back = int(days_back)
+                if days_back < 1 or days_back > 90:
+                    days_back = 7
+            except (ValueError, TypeError):
+                days_back = 7
+            
+            logger.info(f"Pushing FPLog data for PINs: {pins}, days_back: {days_back}")
+            
+            # Push data
+            success, message = self.vps_push_service.push_fplog_for_pins(pins, days_back)
+            
+            if success:
+                # Extract record count from message
+                record_count = 0
+                if 'records' in message:
+                    try:
+                        record_count = int(message.split()[2])
+                    except:
+                        pass
+                
+                return jsonify({
+                    'success': True,
+                    'message': message,
+                    'record_count': record_count,
+                    'pins': pins,
+                    'days_back': days_back
+                })
+            else:
+                return jsonify({
+                    'success': False,
+                    'message': message
+                }), 500
+        
+        except Exception as e:
+            logger.error(f"Error in push_fplog_for_pins: {e}")
+            return jsonify({
+                'success': False,
+                'message': f'Internal error: {str(e)}'
+            }), 500
+    
+    def get_fplog_preview(self):
+        """Get preview of FPLog data to be pushed"""
+        try:
+            data = request.get_json()
+            
+            if not data:
+                return jsonify({
+                    'success': False,
+                    'message': 'Request body is required'
+                }), 400
+            
+            # Get parameters
+            start_date = data.get('start_date')
+            end_date = data.get('end_date')
+            pins = data.get('pins', [])
+            limit = data.get('limit', 50)
+            
+            # Validate required parameters
+            if not start_date:
+                return jsonify({
+                    'success': False,
+                    'message': 'start_date is required'
+                }), 400
+            
+            # Use start_date as end_date if not provided
+            if not end_date:
+                end_date = start_date
+            
+            # Validate date format
+            try:
+                datetime.strptime(start_date, '%Y-%m-%d')
+                datetime.strptime(end_date, '%Y-%m-%d')
+            except ValueError:
+                return jsonify({
+                    'success': False,
+                    'message': 'Invalid date format. Use YYYY-MM-DD'
+                }), 400
+            
+            # Validate limit
+            try:
+                limit = int(limit)
+                if limit < 1 or limit > 1000:
+                    limit = 50
+            except (ValueError, TypeError):
+                limit = 50
+            
+            # Convert pins to strings
+            pins = [str(pin) for pin in pins] if pins else None
+            
+            logger.info(f"Getting FPLog preview - Start: {start_date}, End: {end_date}, PINs: {pins}, Limit: {limit}")
+            
+            # Get preview data
+            payload_data = self.vps_push_service.get_fplog_preview(start_date, end_date, pins, limit)
+            
+            if 'error' in payload_data:
+                return jsonify({
+                    'success': False,
+                    'message': payload_data['error']
+                }), 500
+            
+            records = payload_data.get('records', [])
+            
+            return jsonify({
+                'success': True,
+                'data': records,
+                'record_count': len(records),
+                'payload_preview': payload_data,
+                'start_date': start_date,
+                'end_date': end_date,
+                'pins': pins,
+                'limit': limit,
+                'timestamp': datetime.now().isoformat()
+            })
+        
+        except Exception as e:
+            logger.error(f"Error in get_fplog_preview: {e}")
+            return jsonify({
+                'success': False,
+                'message': f'Internal error: {str(e)}'
+            }), 500
+
+# Global controller instance
+vps_push_controller = VPSPushController()
 
 # Global controller instance
 vps_push_controller = VPSPushController()

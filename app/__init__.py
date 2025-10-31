@@ -79,7 +79,10 @@ def create_app(config_name=None):
     # Register blueprints
     from app.routes import main_bp, api_bp, sync_bp, fplog_bp, failed_logs_bp, vps_push_bp, legacy_attendance_bp, attendance_worker_bp
     from app.controllers.attendance_report_controller import attendance_report_bp
+    from app.controllers.spjamkerja_scheduler_controller import spjamkerja_scheduler_bp
+    from app.controllers.auth_controller import auth_bp
     
+    app.register_blueprint(auth_bp)  # Authentication routes
     app.register_blueprint(main_bp)
     app.register_blueprint(api_bp, url_prefix='/api')
     app.register_blueprint(sync_bp, url_prefix='/sync')
@@ -89,5 +92,28 @@ def create_app(config_name=None):
     app.register_blueprint(legacy_attendance_bp, url_prefix='/legacy-attendance')
     app.register_blueprint(attendance_report_bp)
     app.register_blueprint(attendance_worker_bp)  # Attendance worker dashboard
+    app.register_blueprint(spjamkerja_scheduler_bp)  # spJamkerja scheduler management
+    
+    # Initialize database and create default user
+    try:
+        from app.models.user import User
+        User.create_table()
+        User.create_default_user()
+        app.logger.info("[OK] User authentication system initialized")
+    except Exception as e:
+        app.logger.error(f"[ERROR] Failed to initialize auth system: {e}")
+    
+    # Auto-start spJamkerja scheduler on application startup
+    if config_name in ['production', 'development']:
+        try:
+            from app.services.spjamkerja_scheduler_service import get_spjamkerja_scheduler
+            scheduler = get_spjamkerja_scheduler()
+            success, message = scheduler.start()
+            if success:
+                app.logger.info(f"[OK] spJamkerja Scheduler auto-started: {message}")
+            else:
+                app.logger.warning(f"[WARN] spJamkerja Scheduler start failed: {message}")
+        except Exception as e:
+            app.logger.error(f"[ERROR] Error auto-starting spJamkerja Scheduler: {e}")
     
     return app

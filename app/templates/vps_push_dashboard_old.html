@@ -1,0 +1,1449 @@
+{% extends "base.html" %}
+
+{% block title %}VPS Push Dashboard{% endblock %}
+
+{% block head %}
+<style>
+    /* Modern CSS Variables inspired by the dashboard reference */
+    :root {
+        --primary-color: #ff5722;
+        --primary-light: #ff7043;
+        --primary-dark: #d84315;
+        --success-color: #4caf50;
+        --warning-color: #ff9800;
+        --danger-color: #f44336;
+        --info-color: #2196f3;
+        --light-bg: #f8f9fa;
+        --card-shadow: 0 2px 20px rgba(0,0,0,0.08);
+        --card-hover-shadow: 0 8px 30px rgba(0,0,0,0.12);
+        --border-radius: 16px;
+        --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* Global Body Enhancement */
+    body {
+        background-color: var(--light-bg);
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        min-height: 100vh;
+    }
+
+    .container-fluid {
+        padding: 2rem;
+    }
+
+    /* Dashboard Header */
+    .dashboard-header {
+        background: linear-gradient(135deg, var(--primary-color), var(--primary-light));
+        color: white;
+        padding: 2rem 0;
+        margin-bottom: 2rem;
+        border-radius: var(--border-radius);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .dashboard-header::before {
+        content: '';
+        position: absolute;
+        top: -30%;
+        right: -15%;
+        width: 200px;
+        height: 200px;
+        background: rgba(255,255,255,0.1);
+        border-radius: 50%;
+        animation: float 6s ease-in-out infinite;
+    }
+
+    @keyframes float {
+        0%, 100% { transform: translateY(0px) rotate(0deg); }
+        50% { transform: translateY(-20px) rotate(180deg); }
+    }
+
+    /* Statistics Cards */
+    .stats-card {
+        background: white;
+        border-radius: var(--border-radius);
+        padding: 2rem;
+        box-shadow: var(--card-shadow);
+        transition: var(--transition);
+        border: none;
+        position: relative;
+        overflow: hidden;
+        margin-bottom: 2rem;
+    }
+
+    .stats-card:hover {
+        transform: translateY(-5px);
+        box-shadow: var(--card-hover-shadow);
+    }
+
+    .stats-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: linear-gradient(90deg, var(--primary-color), var(--primary-light));
+    }
+
+    .stats-number {
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+        color: #333;
+        position: relative;
+        z-index: 2;
+    }
+
+    .stats-label {
+        color: #666;
+        font-size: 0.9rem;
+        font-weight: 500;
+        margin-bottom: 1rem;
+        position: relative;
+        z-index: 2;
+    }
+
+    .stats-icon {
+        position: absolute;
+        top: 1.5rem;
+        right: 1.5rem;
+        font-size: 2rem;
+        opacity: 0.3;
+        color: var(--primary-color);
+    }
+
+    .badge {
+        padding: 0.4rem 0.8rem;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+
+    .badge-success {
+        background-color: #e8f5e8;
+        color: var(--success-color);
+    }
+
+    .badge-warning {
+        background-color: #fff3e0;
+        color: var(--warning-color);
+    }
+
+    .badge-primary {
+        background-color: #fff3e0;
+        color: var(--primary-color);
+    }
+
+    /* Chart Container */
+    .chart-container {
+        background: white;
+        border-radius: var(--border-radius);
+        padding: 2rem;
+        box-shadow: var(--card-shadow);
+        margin-bottom: 2rem;
+        transition: var(--transition);
+    }
+
+    .chart-container:hover {
+        box-shadow: var(--card-hover-shadow);
+    }
+
+    .chart-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2rem;
+    }
+
+    .chart-title {
+        font-size: 1.2rem;
+        font-weight: 600;
+        color: #333;
+    }
+
+    /* Enhanced Buttons */
+    .btn {
+        border-radius: 12px;
+        padding: 0.7rem 1.5rem;
+        font-weight: 600;
+        transition: var(--transition);
+        border: none;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .btn-primary {
+        background: linear-gradient(135deg, var(--primary-color), var(--primary-light));
+        border: none;
+        box-shadow: 0 4px 15px rgba(255, 87, 34, 0.3);
+    }
+
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(255, 87, 34, 0.4);
+    }
+
+    .btn-outline-primary {
+        border: 2px solid var(--primary-color);
+        color: var(--primary-color);
+        background: transparent;
+    }
+
+    .btn-outline-primary:hover {
+        background: var(--primary-color);
+        border-color: var(--primary-color);
+        color: white;
+        transform: translateY(-2px);
+    }
+
+    /* Performance Metrics Section */
+    .performance-metrics {
+        background: linear-gradient(135deg, var(--primary-color), var(--primary-light));
+        color: white;
+        border-radius: var(--border-radius);
+        padding: 2rem;
+        position: relative;
+        overflow: hidden;
+        margin-bottom: 2rem;
+    }
+
+    .performance-metrics::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -50%;
+        width: 100%;
+        height: 100%;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 50%;
+    }
+
+    .metric-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+        position: relative;
+        z-index: 2;
+    }
+
+    .metric-value {
+        font-size: 1.5rem;
+        font-weight: 700;
+    }
+
+    /* Quick Actions */
+    .quick-actions {
+        background: white;
+        border-radius: var(--border-radius);
+        padding: 2rem;
+        box-shadow: var(--card-shadow);
+        margin-bottom: 2rem;
+        transition: var(--transition);
+    }
+
+    .quick-actions:hover {
+        box-shadow: var(--card-hover-shadow);
+    }
+
+    .action-btn {
+        display: block;
+        width: 100%;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        border: 2px solid #e0e0e0;
+        border-radius: 12px;
+        background: white;
+        color: #333;
+        text-decoration: none;
+        transition: var(--transition);
+        text-align: center;
+        font-weight: 500;
+    }
+
+    .action-btn:hover {
+        border-color: var(--primary-color);
+        background: rgba(255, 87, 34, 0.05);
+        color: var(--primary-color);
+        text-decoration: none;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 15px rgba(255, 87, 34, 0.2);
+    }
+
+    .action-btn i {
+        margin-right: 0.5rem;
+        font-size: 1.2rem;
+    }
+
+    /* Status Indicators */
+    .status-indicator {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        display: inline-block;
+        margin-right: 0.5rem;
+        position: relative;
+    }
+
+    .status-online {
+        background-color: var(--success-color);
+        animation: pulse 2s infinite;
+        box-shadow: 0 0 10px rgba(76, 175, 80, 0.5);
+    }
+
+    .status-offline {
+        background-color: var(--danger-color);
+        box-shadow: 0 0 10px rgba(244, 67, 54, 0.5);
+    }
+
+    @keyframes pulse {
+        0% { opacity: 1; }
+        50% { opacity: 0.5; }
+        100% { opacity: 1; }
+    }
+
+    /* Progress Bars */
+    .progress-custom {
+        height: 8px;
+        border-radius: 10px;
+        background-color: rgba(255, 255, 255, 0.3);
+        overflow: hidden;
+        margin-top: 1rem;
+    }
+
+    .progress-bar-custom {
+        height: 100%;
+        background: rgba(255, 255, 255, 0.8);
+        border-radius: 10px;
+        transition: width 0.6s ease;
+    }
+
+    /* Recent Activities */
+    .recent-activities {
+        background: white;
+        border-radius: var(--border-radius);
+        padding: 2rem;
+        box-shadow: var(--card-shadow);
+        max-height: 500px;
+        overflow-y: auto;
+        transition: var(--transition);
+    }
+
+    .recent-activities:hover {
+        box-shadow: var(--card-hover-shadow);
+    }
+
+    .activity-item {
+        display: flex;
+        align-items: center;
+        padding: 1rem 0;
+        border-bottom: 1px solid #f0f0f0;
+        transition: var(--transition);
+    }
+
+    .activity-item:hover {
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        margin: 0 -1rem;
+        padding: 1rem;
+    }
+
+    .activity-item:last-child {
+        border-bottom: none;
+    }
+
+    .activity-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: 1rem;
+        font-size: 1.2rem;
+    }
+
+    .activity-icon.success {
+        background: rgba(76, 175, 80, 0.1);
+        color: var(--success-color);
+    }
+
+    .activity-icon.warning {
+        background: rgba(255, 152, 0, 0.1);
+        color: var(--warning-color);
+    }
+
+    .activity-icon.danger {
+        background: rgba(244, 67, 54, 0.1);
+        color: var(--danger-color);
+    }
+
+    .activity-icon.info {
+        background: rgba(33, 150, 243, 0.1);
+        color: var(--info-color);
+    }
+
+    /* Fade in animation */
+    .fade-in {
+        animation: fadeIn 0.5s ease-in;
+    }
+
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Responsive Design */
+    @media (max-width: 768px) {
+        .container-fluid {
+            padding: 1rem;
+        }
+        
+        .dashboard-header {
+            padding: 1.5rem 0;
+        }
+        
+        .stats-card, .chart-container, .quick-actions, .recent-activities {
+            padding: 1.5rem;
+        }
+        
+        .stats-number {
+            font-size: 2rem;
+        }
+        
+        .metric-value {
+            font-size: 1.3rem;
+        }
+    }
+
+    /* Custom Scrollbar */
+    .recent-activities::-webkit-scrollbar {
+        width: 6px;
+    }
+
+    .recent-activities::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 10px;
+    }
+
+    .recent-activities::-webkit-scrollbar-thumb {
+        background: var(--primary-color);
+        border-radius: 10px;
+    }
+
+    .recent-activities::-webkit-scrollbar-thumb:hover {
+        background: var(--primary-dark);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Dashboard Header -->
+    <div class="dashboard-header">
+        <div class="row">
+            <div class="col-md-8">
+                <h1 class="mb-2">VPS Push Dashboard</h1>
+                <p class="mb-0">Monitor and manage your VPS data synchronization</p>
+            </div>
+            <div class="col-md-4 d-flex align-items-center justify-content-end">
+                <span class="status-indicator status-online"></span>
+                <span class="me-2">System Online</span>
+                <small class="text-white-50">Last update: <span id="lastUpdateTime">--:--:--</span></small>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistics Overview -->
+    <div class="row">
+        <div class="col-lg-3 col-md-6 mb-4">
+            <div class="stats-card fade-in">
+                <div class="stats-icon">
+                    <i class="fas fa-upload"></i>
+                </div>
+                <div class="stats-number" id="totalSyncCount">0</div>
+                <div class="stats-label">Total Sync Operations</div>
+                <span class="badge badge-success">Today</span>
+            </div>
+        </div>
+        <div class="col-lg-3 col-md-6 mb-4">
+            <div class="stats-card fade-in">
+                <div class="stats-icon">
+                    <i class="fas fa-check-circle"></i>
+                </div>
+                <div class="stats-number" id="successRate">100%</div>
+                <div class="stats-label">Success Rate</div>
+                <span class="badge badge-success">Excellent</span>
+            </div>
+        </div>
+        <div class="col-lg-3 col-md-6 mb-4">
+            <div class="stats-card fade-in">
+                <div class="stats-icon">
+                    <i class="fas fa-users"></i>
+                </div>
+                <div class="stats-number" id="activeUsers">0</div>
+                <div class="stats-label">Active Users</div>
+                <span class="badge badge-primary">Online</span>
+            </div>
+        </div>
+        <div class="col-lg-3 col-md-6 mb-4">
+            <div class="stats-card fade-in">
+                <div class="stats-icon">
+                    <i class="fas fa-clock"></i>
+                </div>
+                <div class="stats-number" id="avgResponseTime">0ms</div>
+                <div class="stats-label">Avg Response Time</div>
+                <span class="badge badge-warning">Monitoring</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Performance Metrics -->
+    <div class="row mb-4">
+        <div class="col-lg-8">
+            <div class="chart-container">
+                <div class="chart-header">
+                    <h3 class="chart-title">Sync Performance</h3>
+                    <div class="btn-group" role="group">
+                        <button type="button" class="btn btn-outline-primary btn-sm active">24H</button>
+                        <button type="button" class="btn btn-outline-primary btn-sm">7D</button>
+                        <button type="button" class="btn btn-outline-primary btn-sm">30D</button>
+                    </div>
+                </div>
+                <canvas id="performanceChart" height="300"></canvas>
+            </div>
+        </div>
+        <div class="col-lg-4">
+            <div class="performance-metrics">
+                <h4 class="mb-4">Live Metrics</h4>
+                <div class="metric-row">
+                    <span>Data Transfer</span>
+                    <span class="metric-value">2.4 MB/s</span>
+                </div>
+                <div class="progress-custom">
+                    <div class="progress-bar-custom" style="width: 75%"></div>
+                </div>
+                
+                <div class="metric-row">
+                    <span>Queue Status</span>
+                    <span class="metric-value">12 pending</span>
+                </div>
+                <div class="progress-custom">
+                    <div class="progress-bar-custom" style="width: 25%"></div>
+                </div>
+                
+                <div class="metric-row">
+                    <span>Error Rate</span>
+                    <span class="metric-value">0.2%</span>
+                </div>
+                <div class="progress-custom">
+                    <div class="progress-bar-custom" style="width: 2%"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Control Panel -->
+    <div class="row mb-4">
+        <div class="col-lg-8">
+            <div class="chart-container">
+                <div class="chart-header">
+                    <h3 class="chart-title">Data Sync Control</h3>
+                </div>
+                
+                <!-- Date Range Selection -->
+                <form id="date-range-form">
+                    <div class="row mb-4">
+                        <div class="col-md-4">
+                            <label for="start-date" class="form-label">Start Date</label>
+                            <input type="date" class="form-control" id="start-date" name="startDate" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="end-date" class="form-label">End Date</label>
+                            <input type="date" class="form-control" id="end-date" name="endDate">
+                        </div>
+                        <div class="col-md-4">
+                            <label for="date-pins" class="form-label">Filter by PIN</label>
+                            <input type="text" class="form-control" id="date-pins" name="filterPin" placeholder="1001,1002,1003">
+                            <small class="form-text text-muted">Leave blank for all employees</small>
+                        </div>
+                    </div>
+
+                    <!-- Quick Date Selection -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <div class="btn-group me-3" role="group">
+                                <button type="button" class="btn btn-outline-primary btn-sm" onclick="setDateRange('today')">Today</button>
+                                <button type="button" class="btn btn-outline-primary btn-sm" onclick="setDateRange('yesterday')">Yesterday</button>
+                                <button type="button" class="btn btn-outline-primary btn-sm" onclick="setDateRange('week')">This Week</button>
+                                <button type="button" class="btn btn-outline-primary btn-sm" onclick="setDateRange('month')">This Month</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="row">
+                        <div class="col-12">
+                            <button type="submit" class="btn btn-primary me-2">
+                                <span class="loading spinner-border spinner-border-sm" style="display: none;"></span>
+                                <i class="fas fa-play me-2"></i>Start Sync
+                            </button>
+                            <button type="button" class="btn btn-outline-primary me-2" onclick="testConnection()">
+                                <i class="fas fa-network-wired me-2"></i>Test Connection
+                            </button>
+                            <button type="button" class="btn btn-outline-primary me-2" onclick="previewData()">
+                                <i class="fas fa-eye me-2"></i>Preview Data
+                            </button>
+                            <button type="button" class="btn btn-outline-primary" onclick="downloadLogs()">
+                                <i class="fas fa-download me-2"></i>Download Logs
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+        <div class="col-lg-4">
+            <div class="quick-actions">
+                <h4 class="mb-4">Quick Actions</h4>
+                <a href="#" class="action-btn" onclick="quickSync()">
+                    <i class="fas fa-bolt"></i>
+                    Quick Sync (Last 24h)
+                </a>
+                <a href="#" class="action-btn" onclick="fullSync()">
+                    <i class="fas fa-database"></i>
+                    Full Database Sync
+                </a>
+                <a href="#" class="action-btn" onclick="viewSettings()">
+                    <i class="fas fa-cog"></i>
+                    Sync Settings
+                </a>
+                <a href="#" class="action-btn" onclick="viewReports()">
+                    <i class="fas fa-chart-bar"></i>
+                    Sync Reports
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Activities & Activity Log -->
+    <div class="row">
+        <div class="col-lg-6">
+            <div class="recent-activities">
+                <h4 class="mb-4">Recent Activities</h4>
+                <div id="recentActivities">
+                    <!-- Activities will be loaded dynamically -->
+                    <div class="activity-item">
+                        <div class="activity-icon success">
+                            <i class="fas fa-check"></i>
+                        </div>
+                        <div class="flex-grow-1">
+                            <div class="fw-bold">System Ready</div>
+                            <small class="text-muted">Dashboard initialized • Ready for sync operations</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="chart-container">
+                <div class="chart-header">
+                    <h3 class="chart-title">Activity Log</h3>
+                    <button class="btn btn-outline-primary btn-sm" onclick="clearLog()">
+                        <i class="fas fa-trash"></i> Clear
+                    </button>
+                </div>
+                <div id="logContainer" class="bg-dark text-light p-3 rounded" style="height: 400px; overflow-y: auto; font-family: monospace; font-size: 0.9rem;">
+                    <!-- Log entries will be displayed here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Data Preview Modal -->
+    <div class="modal fade" id="dataPreviewModal" tabindex="-1">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Data Preview</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="previewTableContainer">
+                        <!-- Preview table will be loaded here -->
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-primary" onclick="startSyncFromModal()">Start Sync</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+    
+    <!-- Enhanced Status Cards -->
+    <div class="row">
+        <div class="col-md-6">
+            <div class="metric-card info">
+                <div class="metric-value" id="connection-status">
+                    <span class="status-indicator unknown"></span>Checking...
+                </div>
+                <div class="metric-label">VPS Connection Status</div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="metric-card success">
+                <div class="metric-value" id="last-push">Never</div>
+                <div class="metric-label">Last Push Operation</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Main Date Range Push Section -->
+    <div class="row">
+        <div class="col-12">
+            <div class="date-range-section">
+                <div class="row align-items-center">
+                    <div class="col-md-8">
+                        <h4><i class="fas fa-calendar-alt me-2"></i>Push AttRecord Data by Date Range</h4>
+                        <p class="mb-0 opacity-75">Select date range and optional PINs filter to push attendance data to VPS server</p>
+                    </div>
+                    <div class="col-md-4 text-end">
+                        <button type="button" class="btn btn-outline-light" onclick="testConnection()">
+                            <i class="fas fa-plug"></i> Test Connection
+                        </button>
+                    </div>
+                </div>
+                
+                <form id="date-range-form" class="mt-4">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <label for="start-date" class="form-label">Start Date:</label>
+                            <input type="date" class="form-control" id="start-date" required>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="end-date" class="form-label">End Date:</label>
+                            <input type="date" class="form-control" id="end-date">
+                        </div>
+                        <div class="col-md-4">
+                            <label for="date-pins" class="form-label">PINs (optional, comma-separated):</label>
+                            <input type="text" class="form-control" id="date-pins" placeholder="1001,1002,1003">
+                            <small class="form-text text-white-50">Leave blank to push all employees</small>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">&nbsp;</label>
+                            <div class="d-grid gap-2">
+                                <button type="button" class="btn btn-outline-light btn-sm" onclick="previewData()">
+                                    <i class="fas fa-eye"></i> Preview
+                                </button>
+                                <button type="submit" class="btn btn-light">
+                                    <span class="loading spinner-border spinner-border-sm"></span>
+                                    <i class="fas fa-upload"></i> Push Data
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row mt-3">
+                        <div class="col-12">
+                            <div class="btn-group" role="group">
+                                <button type="button" class="btn btn-outline-light btn-sm" onclick="setDateRange('today')">
+                                    <i class="fas fa-calendar-day"></i> Today
+                                </button>
+                                <button type="button" class="btn btn-outline-light btn-sm" onclick="setDateRange('yesterday')">
+                                    <i class="fas fa-calendar-minus"></i> Yesterday
+                                </button>
+                                <button type="button" class="btn btn-outline-light btn-sm" onclick="setDateRange('week')">
+                                    <i class="fas fa-calendar-week"></i> This Week
+                                </button>
+                                <button type="button" class="btn btn-outline-light btn-sm" onclick="setDateRange('month')">
+                                    <i class="fas fa-calendar"></i> This Month
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Enhanced Data Preview -->
+    <div class="row">
+        <div class="col-12">
+            <div class="dashboard-card">
+                <h4><i class="fas fa-table me-2"></i>Data Preview</h4>
+                <p class="text-muted mb-4">Preview data before pushing to VPS server</p>
+                
+                <div class="form-section">
+                    <form id="preview-form">
+                        <div class="row g-3">
+                            <div class="col-md-3">
+                                <label class="form-label">Start Date</label>
+                                <input type="date" class="form-control" id="preview-start-date">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">End Date</label>
+                                <input type="date" class="form-control" id="preview-end-date">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">PINs (optional)</label>
+                                <input type="text" class="form-control" id="preview-pins" 
+                                       placeholder="e.g. 1001,1002,1003">
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label d-block">&nbsp;</label>
+                                <button type="submit" class="btn btn-info w-100">
+                                    <i class="fas fa-search me-1"></i>Preview
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                
+                <div id="preview-container" style="display: none;">
+                    <div class="table-responsive">
+                        <table class="table table-hover preview-table" id="preview-table">
+                            <thead>
+                                <tr>
+                                    <th><i class="fas fa-user-tag me-1"></i>PIN</th>
+                                    <th><i class="fas fa-calendar me-1"></i>Date</th>
+                                    <th><i class="fas fa-clock me-1"></i>Time</th>
+                                    <th><i class="fas fa-info-circle me-1"></i>Status</th>
+                                    <th><i class="fas fa-code me-1"></i>WorkCode</th>
+                                    <th><i class="fas fa-desktop me-1"></i>Device</th>
+                                </tr>
+                            </thead>
+                            <tbody id="preview-tbody">
+                                <!-- Preview data will be populated here -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <div id="preview-summary" class="mt-3"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Enhanced Activity Log -->
+    <div class="row">
+        <div class="col-12">
+            <div class="dashboard-card">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h4><i class="fas fa-list-alt me-2"></i>Push Activity Log</h4>
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="clearLog()">
+                        <i class="fas fa-trash me-1"></i>Clear Log
+                    </button>
+                </div>
+                <div class="log-container" id="activity-log">
+                    <div class="text-muted">🚀 Activity log initialized - ready for operations...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Include Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// Global variables
+let performanceChart;
+let statsUpdateInterval;
+
+// Initialize dashboard
+document.addEventListener('DOMContentLoaded', function() {
+    initializeDashboard();
+    initializePerformanceChart();
+    startStatsUpdates();
+    setDefaultDates();
+    testConnection();
+});
+
+// Set default dates
+function setDefaultDates() {
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('start-date').value = today;
+    document.getElementById('end-date').value = today;
+}
+
+// Initialize dashboard components
+function initializeDashboard() {
+    updateLastUpdateTime();
+    addLog('🚀 Dashboard initialized successfully', 'info');
+    addActivity('System Ready', 'Dashboard initialized • Ready for sync operations', 'info');
+}
+
+// Initialize performance chart
+function initializePerformanceChart() {
+    const ctx = document.getElementById('performanceChart');
+    if (!ctx) return;
+    
+    performanceChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'Sync Operations',
+                data: [],
+                borderColor: 'rgb(255, 87, 34)',
+                backgroundColor: 'rgba(255, 87, 34, 0.1)',
+                borderWidth: 3,
+                fill: true,
+                tension: 0.4
+            }, {
+                label: 'Success Rate %',
+                data: [],
+                borderColor: 'rgb(76, 175, 80)',
+                backgroundColor: 'rgba(76, 175, 80, 0.1)',
+                borderWidth: 2,
+                fill: false,
+                yAxisID: 'y1'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                intersect: false,
+                mode: 'index'
+            },
+            plugins: {
+                legend: {
+                    position: 'top',
+                }
+            },
+            scales: {
+                y: {
+                    type: 'linear',
+                    display: true,
+                    position: 'left',
+                    grid: {
+                        color: 'rgba(0, 0, 0, 0.1)'
+                    }
+                },
+                y1: {
+                    type: 'linear',
+                    display: true,
+                    position: 'right',
+                    min: 0,
+                    max: 100,
+                    grid: {
+                        drawOnChartArea: false,
+                    },
+                }
+            }
+        }
+    });
+}
+
+// Start periodic stats updates
+function startStatsUpdates() {
+    updateLastUpdateTime();
+    
+    // Update every 30 seconds
+    statsUpdateInterval = setInterval(() => {
+        updateLastUpdateTime();
+        // You can add real data fetching here
+        updateMockStats();
+    }, 30000);
+}
+
+// Update last update time
+function updateLastUpdateTime() {
+    const now = new Date();
+    const timeString = now.toLocaleTimeString();
+    const element = document.getElementById('lastUpdateTime');
+    if (element) {
+        element.textContent = timeString;
+    }
+}
+
+// Update mock statistics (replace with real data in production)
+function updateMockStats() {
+    // Simulate realistic data updates
+    const elements = {
+        totalSyncCount: document.getElementById('totalSyncCount'),
+        successRate: document.getElementById('successRate'),
+        activeUsers: document.getElementById('activeUsers'),
+        avgResponseTime: document.getElementById('avgResponseTime')
+    };
+    
+    if (elements.totalSyncCount) {
+        const current = parseInt(elements.totalSyncCount.textContent) || 0;
+        elements.totalSyncCount.textContent = current + Math.floor(Math.random() * 3);
+    }
+    
+    if (elements.avgResponseTime) {
+        const responseTime = 80 + Math.floor(Math.random() * 100);
+        elements.avgResponseTime.textContent = responseTime + 'ms';
+    }
+    
+    // Update chart with new data
+    if (performanceChart) {
+        const now = new Date();
+        const timeLabel = now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        
+        performanceChart.data.labels.push(timeLabel);
+        performanceChart.data.datasets[0].data.push(Math.floor(Math.random() * 20) + 5);
+        performanceChart.data.datasets[1].data.push(95 + Math.floor(Math.random() * 5));
+        
+        // Keep only last 10 data points
+        if (performanceChart.data.labels.length > 10) {
+            performanceChart.data.labels.shift();
+            performanceChart.data.datasets[0].data.shift();
+            performanceChart.data.datasets[1].data.shift();
+        }
+        
+        performanceChart.update('none');
+    }
+}
+
+// Date range shortcuts
+function setDateRange(period) {
+    const today = new Date();
+    let startDate, endDate;
+    
+    switch(period) {
+        case 'today':
+            startDate = endDate = today;
+            break;
+        case 'yesterday':
+            const yesterday = new Date(today);
+            yesterday.setDate(yesterday.getDate() - 1);
+            startDate = endDate = yesterday;
+            break;
+        case 'week':
+            const weekStart = new Date(today);
+            weekStart.setDate(today.getDate() - today.getDay());
+            startDate = weekStart;
+            endDate = today;
+            break;
+        case 'month':
+            const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+            startDate = monthStart;
+            endDate = today;
+            break;
+        default:
+            startDate = endDate = today;
+    }
+    
+    document.getElementById('start-date').value = startDate.toISOString().split('T')[0];
+    document.getElementById('end-date').value = endDate.toISOString().split('T')[0];
+    
+    addLog(`📅 Date range set to: ${period}`, 'info');
+}
+
+// Enhanced logging function
+function addLog(message, type = 'info') {
+    const logContainer = document.getElementById('logContainer');
+    if (!logContainer) return;
+    
+    const timestamp = new Date().toLocaleTimeString();
+    const logEntry = document.createElement('div');
+    
+    // Style based on type
+    let icon = '📝';
+    let className = 'text-info';
+    
+    switch(type) {
+        case 'success':
+            icon = '✅';
+            className = 'text-success';
+            break;
+        case 'error':
+            icon = '❌';
+            className = 'text-danger';
+            break;
+        case 'warning':
+            icon = '⚠️';
+            className = 'text-warning';
+            break;
+        case 'info':
+        default:
+            icon = 'ℹ️';
+            className = 'text-info';
+            break;
+    }
+    
+    logEntry.className = className;
+    logEntry.innerHTML = `[${timestamp}] ${icon} ${message}`;
+    
+    logContainer.appendChild(logEntry);
+    logContainer.scrollTop = logContainer.scrollHeight;
+    
+    // Keep only last 100 entries
+    while (logContainer.children.length > 100) {
+        logContainer.removeChild(logContainer.firstChild);
+    }
+}
+
+// Add activity to recent activities panel
+function addActivity(title, description, type = 'info') {
+    const container = document.getElementById('recentActivities');
+    if (!container) return;
+    
+    // Remove existing items if more than 5
+    while (container.children.length >= 5) {
+        container.removeChild(container.lastChild);
+    }
+    
+    const activity = document.createElement('div');
+    activity.className = 'activity-item';
+    
+    let iconClass = 'fas fa-info-circle';
+    let typeClass = 'info';
+    
+    switch(type) {
+        case 'success':
+            iconClass = 'fas fa-check-circle';
+            typeClass = 'success';
+            break;
+        case 'error':
+            iconClass = 'fas fa-exclamation-circle';
+            typeClass = 'danger';
+            break;
+        case 'warning':
+            iconClass = 'fas fa-exclamation-triangle';
+            typeClass = 'warning';
+            break;
+    }
+    
+    activity.innerHTML = `
+        <div class="activity-icon ${typeClass}">
+            <i class="${iconClass}"></i>
+        </div>
+        <div class="flex-grow-1">
+            <div class="fw-bold">${title}</div>
+            <small class="text-muted">${description}</small>
+        </div>
+    `;
+    
+    container.insertBefore(activity, container.firstChild);
+}
+
+// Clear log function
+function clearLog() {
+    const logContainer = document.getElementById('logContainer');
+    if (logContainer) {
+        logContainer.innerHTML = '';
+        addLog('🧹 Activity log cleared', 'info');
+    }
+}
+
+// Quick action functions
+function quickSync() {
+    setDateRange('today');
+    addLog('🚀 Quick sync initiated for today', 'info');
+    addActivity('Quick Sync Started', 'Syncing today\'s attendance data', 'info');
+    setTimeout(() => {
+        document.getElementById('date-range-form').dispatchEvent(new Event('submit'));
+    }, 500);
+}
+
+function fullSync() {
+    setDateRange('month');
+    addLog('🔄 Full sync initiated for this month', 'info');
+    addActivity('Full Sync Started', 'Syncing all data for current month', 'info');
+    setTimeout(() => {
+        document.getElementById('date-range-form').dispatchEvent(new Event('submit'));
+    }, 500);
+}
+
+function viewSettings() {
+    addLog('⚙️ Opening sync settings', 'info');
+    alert('Sync Settings\n\nThis feature will be available in the next update.');
+}
+
+function viewReports() {
+    addLog('📊 Opening sync reports', 'info');
+    alert('Sync Reports\n\nThis feature will be available in the next update.');
+}
+
+function downloadLogs() {
+    addLog('⬇️ Downloading logs', 'info');
+    const logContent = document.getElementById('logContainer').innerText;
+    const blob = new Blob([logContent], { type: 'text/plain' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `vps-sync-logs-${new Date().toISOString().split('T')[0]}.txt`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+
+// Form submission handler
+document.getElementById('date-range-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const startDate = document.getElementById('start-date').value;
+    const endDate = document.getElementById('end-date').value || startDate;
+    const pins = document.getElementById('date-pins').value;
+    
+    if (!startDate) {
+        addLog('❌ Please select a start date', 'error');
+        return;
+    }
+    
+    const loading = document.querySelector('.loading');
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+    
+    // Show loading state
+    if (loading) loading.style.display = 'inline-block';
+    if (submitBtn) submitBtn.disabled = true;
+    
+    addLog(`� Starting sync: ${startDate} to ${endDate}${pins ? ` (PINs: ${pins})` : ''}`, 'info');
+    addActivity('Sync Started', `Date range: ${startDate} to ${endDate}`, 'info');
+    
+    // Prepare data
+    const formData = new FormData();
+    formData.append('startDate', startDate);
+    formData.append('endDate', endDate);
+    if (pins) formData.append('pins', pins);
+    
+    // Submit to backend
+    fetch('/vps_push/date_range', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        // Hide loading state
+        if (loading) loading.style.display = 'none';
+        if (submitBtn) submitBtn.disabled = false;
+        
+        if (data.success) {
+            addLog(`✅ Sync completed successfully: ${data.message}`, 'success');
+            addActivity('Sync Completed', `${data.record_count || 0} records processed`, 'success');
+            
+            // Update stats
+            const totalSyncElement = document.getElementById('totalSyncCount');
+            if (totalSyncElement) {
+                const current = parseInt(totalSyncElement.textContent) || 0;
+                totalSyncElement.textContent = current + 1;
+            }
+        } else {
+            addLog(`❌ Sync failed: ${data.message}`, 'error');
+            addActivity('Sync Failed', data.message, 'error');
+        }
+    })
+    .catch(error => {
+        // Hide loading state
+        if (loading) loading.style.display = 'none';
+        if (submitBtn) submitBtn.disabled = false;
+        
+        addLog(`❌ Network error: ${error.message}`, 'error');
+        addActivity('Sync Error', `Network error: ${error.message}`, 'error');
+    });
+});
+
+// Preview for date range
+function previewData() {
+    const startDate = document.getElementById('start-date').value;
+    const endDate = document.getElementById('end-date').value || startDate;
+    const pins = document.getElementById('date-pins').value;
+    
+    // Set preview form values
+    document.getElementById('preview-start-date').value = startDate;
+    document.getElementById('preview-end-date').value = endDate;
+    document.getElementById('preview-pins').value = pins;
+    
+    // Trigger preview
+    document.getElementById('preview-form').dispatchEvent(new Event('submit'));
+}
+
+function addLog(message, type = 'info') {
+    const logContainer = document.getElementById('activity-log');
+    const timestamp = new Date().toLocaleString();
+    const logEntry = document.createElement('div');
+    logEntry.className = `log-entry text-${type}`;
+    
+    // Add different emoji icons based on log type
+    let icon = '';
+    switch(type) {
+        case 'success': icon = '✅'; break;
+        case 'danger': icon = '❌'; break;
+        case 'info': icon = 'ℹ️'; break;
+        case 'warning': icon = '⚠️'; break;
+        default: icon = '📝'; break;
+    }
+    
+    logEntry.innerHTML = `${icon} [${timestamp}] ${message}`;
+    logContainer.appendChild(logEntry);
+    logContainer.scrollTop = logContainer.scrollHeight;
+    
+    // Add entrance animation
+    setTimeout(() => {
+        logEntry.style.opacity = '1';
+        logEntry.style.transform = 'translateX(0)';
+    }, 10);
+}
+
+function showLoading(button) {
+    const loading = button.querySelector('.loading');
+    if (loading) loading.classList.add('show');
+    button.disabled = true;
+}
+
+function hideLoading(button) {
+    const loading = button.querySelector('.loading');
+    if (loading) loading.classList.remove('show');
+    button.disabled = false;
+}
+
+async function testConnection() {
+    addLog('🔄 Testing VPS connection...', 'info');
+    
+    // Add loading effect to connection status
+    const statusElement = document.getElementById('connection-status');
+    statusElement.innerHTML = '<span class="status-indicator unknown"></span>Testing...';
+    
+    try {
+        const response = await fetch('/vps-push/test');
+        const data = await response.json();
+        
+        if (data.success) {
+            statusElement.innerHTML = '<span class="status-indicator online"></span>Online';
+            addLog('✅ VPS connection successful - All systems operational!', 'success');
+        } else {
+            statusElement.innerHTML = '<span class="status-indicator offline"></span>Offline';
+            addLog(`❌ VPS connection failed: ${data.message}`, 'danger');
+        }
+    } catch (error) {
+        statusElement.innerHTML = '<span class="status-indicator offline"></span>Error';
+        addLog(`❌ Connection test error: ${error.message}`, 'danger');
+    }
+}
+
+// Main date range form handler
+document.getElementById('date-range-form').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const button = e.target.querySelector('button[type="submit"]');
+    showLoading(button);
+    
+    const startDate = document.getElementById('start-date').value;
+    const endDate = document.getElementById('end-date').value || startDate;
+    const pins = document.getElementById('date-pins').value.split(',').filter(p => p.trim()).map(p => p.trim());
+    
+    addLog(`🚀 Pushing data from ${startDate} to ${endDate}...`, 'info');
+    
+    try {
+        const response = await fetch('/vps-push/push/date-range', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                start_date: startDate,
+                end_date: endDate,
+                pins: pins.length > 0 ? pins : null
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            addLog(`✅ Date range data pushed successfully: ${data.message}`, 'success');
+            document.getElementById('last-push').textContent = new Date().toLocaleString();
+        } else {
+            addLog(`❌ Failed to push date range data: ${data.message}`, 'danger');
+        }
+    } catch (error) {
+        addLog(`❌ Push error: ${error.message}`, 'danger');
+    } finally {
+        hideLoading(button);
+    }
+});
+
+// Preview form handler
+document.getElementById('preview-form').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const startDate = document.getElementById('preview-start-date').value;
+    const endDate = document.getElementById('preview-end-date').value || startDate;
+    const pins = document.getElementById('preview-pins').value.split(',').filter(p => p.trim()).map(p => p.trim());
+    
+    addLog(`🔍 Loading preview for ${startDate} to ${endDate}...`, 'info');
+    
+    try {
+        const response = await fetch('/vps-push/preview', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                start_date: startDate,
+                end_date: endDate,
+                pins: pins.length > 0 ? pins : null,
+                limit: 50
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showPreviewData(result.data, result.record_count);
+            addLog(`✅ Preview loaded: ${result.record_count} records found`, 'success');
+        } else {
+            addLog(`❌ Failed to load preview: ${result.message}`, 'danger');
+        }
+    } catch (error) {
+        addLog(`❌ Preview error: ${error.message}`, 'danger');
+    }
+});
+
+function showPreviewData(data, recordCount) {
+    const tbody = document.getElementById('preview-tbody');
+    const container = document.getElementById('preview-container');
+    const summary = document.getElementById('preview-summary');
+    
+    tbody.innerHTML = '';
+    
+    if (data.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="6" class="text-center py-4">
+                    <i class="fas fa-search fa-2x text-muted mb-2"></i>
+                    <div class="text-muted">No data found for the selected criteria</div>
+                </td>
+            </tr>`;
+    } else {
+        data.forEach((record, index) => {
+            const row = tbody.insertRow();
+            row.style.opacity = '0';
+            row.style.transform = 'translateY(20px)';
+            
+            row.insertCell(0).innerHTML = `<span class="badge bg-primary">${record.PIN || record.pin || '-'}</span>`;
+            row.insertCell(1).textContent = record.Date || record.tanggal || '-';
+            row.insertCell(2).innerHTML = `<code>${record.Time || record.jam || '-'}</code>`;
+            row.insertCell(3).innerHTML = `<span class="badge bg-info">${record.Status || record.status || '-'}</span>`;
+            row.insertCell(4).textContent = record.WorkCode || record.workcode || '-';
+            row.insertCell(5).innerHTML = `<small class="text-muted">${record.DeviceName || record.machine || '-'}</small>`;
+            
+            // Animate row appearance
+            setTimeout(() => {
+                row.style.transition = 'all 0.3s ease';
+                row.style.opacity = '1';
+                row.style.transform = 'translateY(0)';
+            }, index * 50);
+        });
+    }
+    
+    summary.innerHTML = `
+        <div class="alert alert-info d-flex align-items-center">
+            <i class="fas fa-chart-bar fa-2x me-3"></i>
+            <div>
+                <strong>📊 Preview Summary:</strong> 
+                Showing <span class="badge bg-primary">${data.length}</span> of 
+                <span class="badge bg-success">${recordCount}</span> total records
+                ${data.length < recordCount ? ' <small class="text-muted">(limited to 50 records for preview)</small>' : ''}
+            </div>
+        </div>
+    `;
+    
+    container.style.display = 'block';
+    container.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function clearLog() {
+    const logContainer = document.getElementById('activity-log');
+    logContainer.innerHTML = '<div class="text-muted">🧹 Activity log cleared - ready for new operations...</div>';
+    addLog('📝 Activity log has been cleared', 'info');
+}
+</script>
+{% endblock %}

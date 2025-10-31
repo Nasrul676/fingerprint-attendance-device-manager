@@ -1,0 +1,6 @@
+tanggal,id,divisi,masuk,masuk produksi,pulang produksi,pulang,keterangan
+2025-01-01,12345,IT,08:00,09:00,17:00,18:00,Test upload
+2025-01-01,67890,HR,08:30,,16:30,17:30,Late entry
+2025-01-02,12345,IT,08:15,09:15,,18:15,No production exit
+2025-01-02,11111,Finance,,09:30,17:30,,Production only
+2025-01-03,22222,Operations,08:00,09:00,17:00,18:00,Complete attendance

@@ -97,6 +97,10 @@ class AttendanceModel:
         else:
             return self._execute_spjamkerja_procedure_original(start_date, end_date)
     
+    def execute_spjamkerja(self, start_date, end_date):
+        """Alias for execute_spjamkerja_procedure (scheduler compatibility)"""
+        return self._execute_spjamkerja_procedure_original(start_date, end_date)
+    
     def _execute_spjamkerja_procedure_original(self, start_date, end_date):
         """Execute the spJamkerja stored procedure"""
         try:
@@ -1028,7 +1032,7 @@ class AttendanceModel:
         except Exception as e:
             return False, f"Error adding to attendance queue (enhanced): {str(e)}"
     
-    def get_failed_attendance_logs(self, start_date=None, end_date=None, page=1, per_page=50):
+    def get_failed_attendance_logs(self, start_date=None, end_date=None, pin_filter=None, page=1, per_page=50):
         """Get failed attendance logs from gagalabsens table with pagination"""
         try:
             conn = self.db_manager.get_sqlserver_connection()
@@ -1038,17 +1042,26 @@ class AttendanceModel:
             cursor = conn.cursor()
             
             # Build filter query
-            filter_query = ""
+            filter_conditions = []
             params = []
+            
             if start_date and end_date:
-                filter_query = " WHERE tgl BETWEEN ? AND ?"
-                params = [start_date + ' 00:00:00', end_date + ' 23:59:59']
+                filter_conditions.append("tgl BETWEEN ? AND ?")
+                params.extend([start_date + ' 00:00:00', end_date + ' 23:59:59'])
             elif start_date:
-                filter_query = " WHERE tgl >= ?"
-                params = [start_date + ' 00:00:00']
+                filter_conditions.append("tgl >= ?")
+                params.append(start_date + ' 00:00:00')
             elif end_date:
-                filter_query = " WHERE tgl <= ?"
-                params = [end_date + ' 23:59:59']
+                filter_conditions.append("tgl <= ?")
+                params.append(end_date + ' 23:59:59')
+                
+            if pin_filter:
+                filter_conditions.append("pin = ?")
+                params.append(pin_filter)
+            
+            filter_query = ""
+            if filter_conditions:
+                filter_query = " WHERE " + " AND ".join(filter_conditions)
             
             # Get total count
             count_query = f"SELECT COUNT(*) as total FROM gagalabsens{filter_query}"
@@ -1074,10 +1087,15 @@ class AttendanceModel:
             for row in rows:
                 row_dict = {}
                 for i, value in enumerate(row):
-                    if hasattr(value, 'strftime') and value is not None:
-                        row_dict[columns[i]] = value.strftime('%Y-%m-%d %H:%M:%S')
+                    column_name = columns[i]
+                    # Keep datetime objects as-is for template formatting
+                    # Only convert None to proper None
+                    if value is None:
+                        row_dict[column_name] = None
                     else:
-                        row_dict[columns[i]] = value
+                        # Keep original column names for new template format
+                        row_dict[column_name] = value
+                
                 data.append(row_dict)
             
             cursor.close()

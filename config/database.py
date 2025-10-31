@@ -47,6 +47,10 @@ class DatabaseManager:
                 print(error_msg)
             return None
     
+    def get_connection(self):
+        """Alias for get_sqlserver_connection for backwards compatibility"""
+        return self.get_sqlserver_connection()
+    
     def test_connection(self):
         """Test SQL Server database connection"""
         try:

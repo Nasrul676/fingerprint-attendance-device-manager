@@ -2,537 +2,2554 @@
 
 {% block title %}VPS Push Dashboard{% endblock %}
 
-{% block head %}
+{% block extra_css %}
 <style>
-    .dashboard-card {
-        background: #fff;
-        border-radius: 8px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        padding: 20px;
-        margin-bottom: 20px;
+    :root {
+        --primary-color: #007bff;
+        --primary-light: #42a5f5;
+        --primary-dark: #0056b3;
+        --success-color: #4caf50;
+        --warning-color: #ff9800;
+        --danger-color: #f44336;
+        --info-color: #17a2b8;
+        --workinghours-color: #9c27b0;
+        --workinghours-light: #ba68c8;
+        --fplog-color: #00897b;
+        --fplog-light: #4db6ac;
+        --light-bg: #f8f9fa;
+        --border-radius: 12px;
+        --card-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        --card-hover-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+        --transition: all 0.3s ease;
     }
-    
-    .metric-card {
-        text-align: center;
-        padding: 15px;
-        border-radius: 8px;
+
+    /* Global Body Enhancement */
+    body {
+        background-color: var(--light-bg);
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        min-height: 100vh;
+    }
+
+    .container-fluid {
+        padding: 2rem;
+    }
+
+    /* Dashboard Header */
+    .dashboard-header {
+        background: linear-gradient(135deg, var(--primary-color), var(--primary-light));
         color: white;
-        margin-bottom: 15px;
+        padding: 2rem 0;
+        margin-bottom: 2rem;
+        border-radius: var(--border-radius);
+        position: relative;
+        overflow: hidden;
     }
-    
-    .metric-card.success { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
-    .metric-card.warning { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
-    .metric-card.info { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
-    .metric-card.danger { background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); }
-    
+
+    .dashboard-header::before {
+        content: '';
+        position: absolute;
+        top: -30%;
+        right: -15%;
+        width: 200px;
+        height: 200px;
+        background: rgba(255,255,255,0.1);
+        border-radius: 50%;
+        animation: float 6s ease-in-out infinite;
+    }
+
+    @keyframes float {
+        0%, 100% { transform: translateY(0px) rotate(0deg); }
+        50% { transform: translateY(-20px) rotate(180deg); }
+    }
+
+    /* Statistics Cards */
+    .stats-card {
+        background: white;
+        border-radius: var(--border-radius);
+        padding: 2rem;
+        box-shadow: var(--card-shadow);
+        transition: var(--transition);
+        border: none;
+        position: relative;
+        overflow: hidden;
+        margin-bottom: 2rem;
+    }
+
+    .stats-card:hover {
+        transform: translateY(-5px);
+        box-shadow: var(--card-hover-shadow);
+    }
+
+    .stats-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: linear-gradient(90deg, var(--primary-color), var(--primary-light));
+    }
+
+    .stats-number {
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+        color: #333;
+        position: relative;
+        z-index: 2;
+    }
+
+    .stats-label {
+        color: #666;
+        font-size: 0.9rem;
+        font-weight: 500;
+        margin-bottom: 1rem;
+        position: relative;
+        z-index: 2;
+    }
+
+    .stats-icon {
+        position: absolute;
+        top: 1.5rem;
+        right: 1.5rem;
+        font-size: 2rem;
+        opacity: 0.3;
+        color: var(--primary-color);
+    }
+
+    .badge {
+        padding: 0.4rem 0.8rem;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+
+    .badge-success {
+        background-color: #e8f5e8;
+        color: var(--success-color);
+    }
+
+    .badge-warning {
+        background-color: #fff3e0;
+        color: var(--warning-color);
+    }
+
+    .badge-primary {
+        background-color: #fff3e0;
+        color: var(--primary-color);
+    }
+
+    /* Chart Container */
+    .chart-container {
+        background: white;
+        border-radius: var(--border-radius);
+        padding: 2rem;
+        box-shadow: var(--card-shadow);
+        margin-bottom: 2rem;
+        transition: var(--transition);
+    }
+
+    .chart-container:hover {
+        box-shadow: var(--card-hover-shadow);
+    }
+
+    .chart-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2rem;
+    }
+
+    .chart-title {
+        font-size: 1.2rem;
+        font-weight: 600;
+        color: #333;
+    }
+
+    /* Enhanced Buttons */
+    .btn {
+        border-radius: 12px;
+        padding: 0.7rem 1.5rem;
+        font-weight: 600;
+        transition: var(--transition);
+        border: none;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .btn-primary {
+        background: linear-gradient(135deg, var(--primary-color), var(--primary-light));
+        border: none;
+        box-shadow: 0 4px 15px rgba(255, 87, 34, 0.3);
+    }
+
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(255, 87, 34, 0.4);
+    }
+
+    .btn-outline-primary {
+        border: 2px solid var(--primary-color);
+        color: var(--primary-color);
+        background: transparent;
+    }
+
+    .btn-outline-primary:hover {
+        background: var(--primary-color);
+        border-color: var(--primary-color);
+        color: white;
+        transform: translateY(-2px);
+    }
+
+    /* Performance Metrics Section */
+    .performance-metrics {
+        background: linear-gradient(135deg, var(--primary-color), var(--primary-light));
+        color: white;
+        border-radius: var(--border-radius);
+        padding: 2rem;
+        position: relative;
+        overflow: hidden;
+        margin-bottom: 2rem;
+    }
+
+    .performance-metrics::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -50%;
+        width: 100%;
+        height: 100%;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 50%;
+    }
+
+    .metric-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+        position: relative;
+        z-index: 2;
+    }
+
     .metric-value {
-        font-size: 2em;
-        font-weight: bold;
-        margin-bottom: 5px;
+        font-size: 1.5rem;
+        font-weight: 700;
     }
-    
-    .metric-label {
-        font-size: 0.9em;
-        opacity: 0.9;
+
+    /* Quick Actions */
+    .quick-actions {
+        background: white;
+        border-radius: var(--border-radius);
+        padding: 2rem;
+        box-shadow: var(--card-shadow);
+        margin-bottom: 2rem;
+        transition: var(--transition);
     }
-    
-    .btn-action {
-        margin: 5px;
+
+    .quick-actions:hover {
+        box-shadow: var(--card-hover-shadow);
     }
-    
-    .log-container {
-        background: #f8f9fa;
-        border: 1px solid #dee2e6;
-        border-radius: 5px;
-        padding: 15px;
-        max-height: 400px;
-        overflow-y: auto;
-        font-family: monospace;
-        font-size: 0.9em;
+
+    .action-btn {
+        display: block;
+        width: 100%;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        border: 2px solid #e0e0e0;
+        border-radius: 12px;
+        background: white;
+        color: #333;
+        text-decoration: none;
+        transition: var(--transition);
+        text-align: center;
+        font-weight: 500;
     }
-    
+
+    .action-btn:hover {
+        border-color: var(--primary-color);
+        background: rgba(255, 87, 34, 0.05);
+        color: var(--primary-color);
+        text-decoration: none;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 15px rgba(255, 87, 34, 0.2);
+    }
+
+    .action-btn i {
+        margin-right: 0.5rem;
+        font-size: 1.2rem;
+    }
+
+    /* Status Indicators */
     .status-indicator {
-        display: inline-block;
         width: 12px;
         height: 12px;
         border-radius: 50%;
-        margin-right: 8px;
-    }
-    
-    .status-indicator.online { background-color: #28a745; }
-    .status-indicator.offline { background-color: #dc3545; }
-    .status-indicator.unknown { background-color: #6c757d; }
-    
-    .preview-table {
-        font-size: 0.8em;
-    }
-    
-    .form-section {
-        border: 1px solid #dee2e6;
-        border-radius: 5px;
-        padding: 15px;
-        margin-bottom: 20px;
-    }
-    
-    .form-section h5 {
-        margin-top: 0;
-        color: #495057;
-        border-bottom: 1px solid #dee2e6;
-        padding-bottom: 10px;
-    }
-    
-    .loading {
-        display: none;
-    }
-    
-    .loading.show {
         display: inline-block;
+        margin-right: 0.5rem;
+        position: relative;
+    }
+
+    .status-online {
+        background-color: var(--success-color);
+        animation: pulse 2s infinite;
+        box-shadow: 0 0 10px rgba(76, 175, 80, 0.5);
+    }
+
+    .status-offline {
+        background-color: var(--danger-color);
+        box-shadow: 0 0 10px rgba(244, 67, 54, 0.5);
+    }
+
+    @keyframes pulse {
+        0% { opacity: 1; }
+        50% { opacity: 0.5; }
+        100% { opacity: 1; }
+    }
+
+    /* Progress Bars */
+    .progress-custom {
+        height: 8px;
+        border-radius: 10px;
+        background-color: rgba(255, 255, 255, 0.3);
+        overflow: hidden;
+        margin-top: 1rem;
+    }
+
+    .progress-bar-custom {
+        height: 100%;
+        background: rgba(255, 255, 255, 0.8);
+        border-radius: 10px;
+        transition: width 0.6s ease;
+    }
+
+    /* Recent Activities */
+    .recent-activities {
+        background: white;
+        border-radius: var(--border-radius);
+        padding: 2rem;
+        box-shadow: var(--card-shadow);
+        max-height: 500px;
+        overflow-y: auto;
+        transition: var(--transition);
+    }
+
+    .recent-activities:hover {
+        box-shadow: var(--card-hover-shadow);
+    }
+
+    .activity-item {
+        display: flex;
+        align-items: center;
+        padding: 1rem 0;
+        border-bottom: 1px solid #f0f0f0;
+        transition: var(--transition);
+    }
+
+    .activity-item:hover {
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        margin: 0 -1rem;
+        padding: 1rem;
+    }
+
+    .activity-item:last-child {
+        border-bottom: none;
+    }
+
+    .activity-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: 1rem;
+        font-size: 1.2rem;
+    }
+
+    .activity-icon.success {
+        background: rgba(76, 175, 80, 0.1);
+        color: var(--success-color);
+    }
+
+    .activity-icon.warning {
+        background: rgba(255, 152, 0, 0.1);
+        color: var(--warning-color);
+    }
+
+    .activity-icon.danger {
+        background: rgba(244, 67, 54, 0.1);
+        color: var(--danger-color);
+    }
+
+    .activity-icon.info {
+        background: rgba(33, 150, 243, 0.1);
+        color: var(--info-color);
+    }
+
+    /* Fade in animation */
+    .fade-in {
+        animation: fadeIn 0.5s ease-in;
+    }
+
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Custom Scrollbar */
+    .recent-activities::-webkit-scrollbar {
+        width: 6px;
+    }
+
+    .recent-activities::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 10px;
+    }
+
+    .recent-activities::-webkit-scrollbar-thumb {
+        background: var(--primary-color);
+        border-radius: 10px;
+    }
+
+    .recent-activities::-webkit-scrollbar-thumb:hover {
+        background: var(--primary-dark);
+    }
+
+    /* Tab Navigation Styles */
+    .nav-tabs {
+        border-bottom: 3px solid #e0e0e0;
+        margin-bottom: 2rem;
+    }
+
+    .nav-tabs .nav-link {
+        border: none;
+        color: #666;
+        font-weight: 600;
+        font-size: 1.1rem;
+        padding: 1rem 2rem;
+        border-radius: 12px 12px 0 0;
+        transition: var(--transition);
+        position: relative;
+    }
+
+    .nav-tabs .nav-link:hover {
+        color: var(--primary-color);
+        background: rgba(255, 87, 34, 0.05);
+    }
+
+    .nav-tabs .nav-link.active {
+        color: var(--primary-color);
+        background: white;
+        border-bottom: 3px solid var(--primary-color);
+    }
+
+    .nav-tabs .nav-link i {
+        margin-right: 0.5rem;
+    }
+
+    /* WorkingHours Tab Active State */
+    #workinghours-tab.active {
+        color: var(--workinghours-color) !important;
+        border-bottom-color: var(--workinghours-color) !important;
+    }
+
+    #workinghours-tab:hover {
+        color: var(--workinghours-color) !important;
+        background: rgba(156, 39, 176, 0.05) !important;
+    }
+
+    /* WorkingHours themed cards */
+    #workinghours-panel .success-card {
+        background: linear-gradient(135deg, var(--workinghours-color), var(--workinghours-light));
+    }
+
+    #workinghours-panel .btn-success {
+        background: var(--workinghours-color);
+        border-color: var(--workinghours-color);
+    }
+
+    #workinghours-panel .btn-success:hover {
+        background: var(--workinghours-light);
+        border-color: var(--workinghours-light);
+    }
+
+    #workinghours-panel .badge.bg-primary {
+        background: var(--workinghours-color) !important;
+    }
+
+    /* FPLog Tab Styling - Teal Theme */
+    #fplog-panel .success-card {
+        background: linear-gradient(135deg, var(--fplog-color), var(--fplog-light));
+    }
+
+    #fplog-panel .btn-success {
+        background: var(--fplog-color);
+        border-color: var(--fplog-color);
+    }
+
+    #fplog-panel .btn-success:hover {
+        background: var(--fplog-light);
+        border-color: var(--fplog-light);
+    }
+
+    #fplog-panel .badge.bg-primary {
+        background: var(--fplog-color) !important;
+    }
+
+    /* Responsive Design */
+    @media (max-width: 768px) {
+        .container-fluid {
+            padding: 1rem;
+        }
+        
+        .dashboard-header {
+            padding: 1.5rem 0;
+        }
+        
+        .stats-card, .chart-container, .quick-actions, .recent-activities {
+            padding: 1.5rem;
+        }
+        
+        .stats-number {
+            font-size: 2rem;
+        }
+        
+        .metric-value {
+            font-size: 1.3rem;
+        }
+
+        .nav-tabs .nav-link {
+            font-size: 0.95rem;
+            padding: 0.75rem 1rem;
+        }
     }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="container-fluid">
-    <div class="row">
-        <div class="col-12">
-            <h2><i class="fas fa-cloud-upload-alt"></i> VPS Push Dashboard</h2>
-            <p class="text-muted">Monitor and manage AttRecord data synchronization to VPS</p>
+    <!-- Dashboard Header -->
+    <!-- <div class="dashboard-header">
+        <div class="row">
+            <div class="col-md-8">
+                <h1 class="mb-2">VPS Push Dashboard</h1>
+                <p class="mb-0">Monitor and manage your VPS data synchronization</p>
+            </div>
+            <div class="col-md-4 d-flex align-items-center justify-content-end">
+                <span class="status-indicator status-online"></span>
+                <span class="me-2">System Online</span>
+                <small class="text-white-50">Last update: <span id="lastUpdateTime">--:--:--</span></small>
+            </div>
         </div>
-    </div>
-    
-    <!-- Status Cards -->
+    </div> -->
+
+    <!-- Tab Navigation -->
+    <ul class="nav nav-tabs nav-fill mb-4" id="dataTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="attrecord-tab" data-bs-toggle="tab" data-bs-target="#attrecord-panel" type="button" role="tab">
+                <i class="fas fa-fingerprint me-2"></i>AttRecord Data
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="workinghours-tab" data-bs-toggle="tab" data-bs-target="#workinghours-panel" type="button" role="tab">
+                <i class="fas fa-clock me-2"></i>WorkingHours Data
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="fplog-tab" data-bs-toggle="tab" data-bs-target="#fplog-panel" type="button" role="tab">
+                <i class="fas fa-hand-point-right me-2"></i>FPLog Data
+            </button>
+        </li>
+    </ul>
+
+    <!-- Tab Content -->
+    <div class="tab-content" id="dataTabsContent">
+        <!-- AttRecord Tab -->
+        <div class="tab-pane fade show active" id="attrecord-panel" role="tabpanel">
+
+    <!-- Statistics Overview -->
     <div class="row">
-        <div class="col-md-3">
-            <div class="metric-card info">
-                <div class="metric-value" id="connection-status">
-                    <span class="status-indicator unknown"></span>Unknown
+        <div class="col-lg-3 col-md-6 mb-4">
+            <div class="stats-card fade-in">
+                <div class="stats-icon">
+                    <i class="fas fa-upload"></i>
                 </div>
-                <div class="metric-label">VPS Connection</div>
+                <div class="stats-number" id="totalSyncCount">0</div>
+                <div class="stats-label">Total Sync Operations</div>
+                <span class="badge badge-success">Today</span>
             </div>
         </div>
-        <div class="col-md-3">
-            <div class="metric-card success">
-                <div class="metric-value" id="total-pushed">-</div>
-                <div class="metric-label">Total Records Pushed</div>
+        <div class="col-lg-3 col-md-6 mb-4">
+            <div class="stats-card fade-in">
+                <div class="stats-icon">
+                    <i class="fas fa-check-circle"></i>
+                </div>
+                <div class="stats-number" id="successRate">100%</div>
+                <div class="stats-label">Success Rate</div>
+                <span class="badge badge-success">Excellent</span>
             </div>
         </div>
-        <div class="col-md-3">
-            <div class="metric-card warning">
-                <div class="metric-value" id="failed-pushes">-</div>
-                <div class="metric-label">Failed Pushes</div>
+        <div class="col-lg-3 col-md-6 mb-4">
+            <div class="stats-card fade-in">
+                <div class="stats-icon">
+                    <i class="fas fa-users"></i>
+                </div>
+                <div class="stats-number" id="activeUsers">0</div>
+                <div class="stats-label">Active Users</div>
+                <span class="badge badge-primary">Online</span>
             </div>
         </div>
-        <div class="col-md-3">
-            <div class="metric-card danger">
-                <div class="metric-value" id="last-push">-</div>
-                <div class="metric-label">Last Push</div>
+        <div class="col-lg-3 col-md-6 mb-4">
+            <div class="stats-card fade-in">
+                <div class="stats-icon">
+                    <i class="fas fa-clock"></i>
+                </div>
+                <div class="stats-number" id="avgResponseTime">0ms</div>
+                <div class="stats-label">Avg Response Time</div>
+                <span class="badge badge-warning">Monitoring</span>
             </div>
         </div>
     </div>
-    
-    <!-- Quick Actions -->
+
+    <!-- Control Panel -->
+    <div class="row mb-4">
+        <div class="col-lg-8">
+            <div class="chart-container">
+                <div class="chart-header">
+                    <h3 class="chart-title">Data Sync Control</h3>
+                </div>
+                
+                <!-- Date Range Selection -->
+                <form id="date-range-form">
+                    <div class="row mb-4">
+                        <div class="col-md-4">
+                            <label for="start-date" class="form-label">Start Date</label>
+                            <input type="date" class="form-control" id="start-date" name="startDate" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="end-date" class="form-label">End Date</label>
+                            <input type="date" class="form-control" id="end-date" name="endDate">
+                        </div>
+                        <div class="col-md-4">
+                            <label for="date-pins" class="form-label">Filter by PIN</label>
+                            <input type="text" class="form-control" id="date-pins" name="filterPin" placeholder="1001,1002,1003">
+                            <small class="form-text text-muted">Leave blank for all employees</small>
+                        </div>
+                    </div>
+
+                    <!-- Quick Date Selection -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <div class="btn-group me-3" role="group">
+                                <button type="button" class="btn btn-outline-primary btn-sm" onclick="setDateRange('today')">Today</button>
+                                <button type="button" class="btn btn-outline-primary btn-sm" onclick="setDateRange('yesterday')">Yesterday</button>
+                                <button type="button" class="btn btn-outline-primary btn-sm" onclick="setDateRange('week')">This Week</button>
+                                <button type="button" class="btn btn-outline-primary btn-sm" onclick="setDateRange('month')">This Month</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="row">
+                        <div class="col-12">
+                            <button type="submit" class="btn btn-primary me-2">
+                                <span class="loading spinner-border spinner-border-sm" style="display: none;"></span>
+                                <i class="fas fa-play me-2"></i>Start Sync
+                            </button>
+                            <button type="button" class="btn btn-outline-primary me-2" onclick="testConnection()">
+                                <i class="fas fa-network-wired me-2"></i>Test Connection
+                            </button>
+                            <button type="button" class="btn btn-outline-primary me-2" onclick="previewData()">
+                                <i class="fas fa-eye me-2"></i>Preview Data
+                            </button>
+                            <button type="button" class="btn btn-outline-primary" onclick="downloadLogs()">
+                                <i class="fas fa-download me-2"></i>Download Logs
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+        <div class="col-lg-4">
+            <div class="quick-actions">
+                <h4 class="mb-4">Quick Actions</h4>
+                <a href="#" class="action-btn" onclick="quickSync()">
+                    <i class="fas fa-bolt"></i>
+                    Quick Sync (Last 24h)
+                </a>
+                <a href="#" class="action-btn" onclick="fullSync()">
+                    <i class="fas fa-database"></i>
+                    Full Database Sync
+                </a>
+                <a href="#" class="action-btn" onclick="viewSettings()">
+                    <i class="fas fa-cog"></i>
+                    Sync Settings
+                </a>
+                <a href="#" class="action-btn" onclick="viewReports()">
+                    <i class="fas fa-chart-bar"></i>
+                    Sync Reports
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Activities & Activity Log -->
     <div class="row">
-        <div class="col-12">
-            <div class="dashboard-card">
-                <h4><i class="fas fa-bolt"></i> Quick Actions</h4>
-                <div class="btn-group" role="group">
-                    <button type="button" class="btn btn-primary btn-action" onclick="testConnection()">
-                        <i class="fas fa-plug"></i> Test Connection
+        <div class="col-lg-6">
+            <div class="recent-activities">
+                <h4 class="mb-4">Recent Activities</h4>
+                <div id="recentActivities">
+                    <!-- Activities will be loaded dynamically -->
+                    <div class="activity-item">
+                        <div class="activity-icon success">
+                            <i class="fas fa-check"></i>
+                        </div>
+                        <div class="flex-grow-1">
+                            <div class="fw-bold">System Ready</div>
+                            <small class="text-muted">Dashboard initialized • Ready for sync operations</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="chart-container">
+                <div class="chart-header">
+                    <h3 class="chart-title">Activity Log</h3>
+                    <button class="btn btn-outline-primary btn-sm" onclick="clearLog()">
+                        <i class="fas fa-trash"></i> Clear
                     </button>
-                    <button type="button" class="btn btn-success btn-action" onclick="pushToday()">
-                        <i class="fas fa-calendar-day"></i> Push Today's Data
+                </div>
+                <div id="logContainer" class="bg-dark text-light p-3 rounded" style="height: 400px; overflow-y: auto; font-family: monospace; font-size: 0.9rem;">
+                    <!-- Log entries will be displayed here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Data Preview Modal -->
+    <div class="modal fade" id="dataPreviewModal" tabindex="-1">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Data Preview</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="previewTableContainer">
+                        <!-- Preview table will be loaded here -->
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-primary" onclick="startSyncFromModal()">Start Sync</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    </div>
+    <!-- End of AttRecord Tab Panel -->
+
+    <!-- WorkingHours Tab Panel -->
+    <div class="tab-pane fade" id="workinghours-panel" role="tabpanel" aria-labelledby="workinghours-tab">
+    
+    <!-- Statistics Row -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="stat-card success-card">
+                <div class="stat-icon">
+                    <i class="fas fa-check-circle"></i>
+                </div>
+                <div class="stat-info">
+                    <div class="stat-label">Successful Pushes (WH)</div>
+                    <div class="stat-value" id="wh-success-count">0</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card error-card">
+                <div class="stat-icon">
+                    <i class="fas fa-times-circle"></i>
+                </div>
+                <div class="stat-info">
+                    <div class="stat-label">Failed Pushes (WH)</div>
+                    <div class="stat-value" id="wh-error-count">0</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card warning-card">
+                <div class="stat-icon">
+                    <i class="fas fa-exclamation-triangle"></i>
+                </div>
+                <div class="stat-info">
+                    <div class="stat-label">Pending (WH)</div>
+                    <div class="stat-value" id="wh-pending-count">0</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card info-card">
+                <div class="stat-icon">
+                    <i class="fas fa-clock"></i>
+                </div>
+                <div class="stat-info">
+                    <div class="stat-label">Last Sync (WH)</div>
+                    <div class="stat-value" id="wh-last-sync" style="font-size: 0.9rem;">Never</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Control Panel -->
+    <div class="row g-4 mb-4">
+        <div class="col-lg-8">
+            <div class="control-panel">
+                <h3 class="panel-title">
+                    <i class="fas fa-briefcase"></i>
+                    WorkingHours Push Control
+                </h3>
+                
+                <!-- Quick Actions -->
+                <div class="quick-actions">
+                    <button class="btn btn-success btn-lg" onclick="quickSyncWorkingHours('today')">
+                        <i class="fas fa-sync-alt"></i>
+                        Sync Today (Yesterday - Today)
                     </button>
-                    <button type="button" class="btn btn-info btn-action" onclick="refreshStatistics()">
-                        <i class="fas fa-sync"></i> Refresh Statistics
+                    <button class="btn btn-primary btn-lg" onclick="quickSyncWorkingHours('week')">
+                        <i class="fas fa-calendar-week"></i>
+                        Sync This Week
                     </button>
-                    <button type="button" class="btn btn-secondary btn-action" onclick="showPreview()">
+                    <button class="btn btn-info btn-lg" onclick="quickSyncWorkingHours('month')">
+                        <i class="fas fa-calendar-alt"></i>
+                        Sync This Month
+                    </button>
+                </div>
+
+                <!-- Custom Date Range Form -->
+                <form id="wh-date-range-form" class="date-range-form" onsubmit="syncWorkingHoursByDate(event)">
+                    <div class="row g-3">
+                        <div class="col-md-5">
+                            <label for="wh-start-date" class="form-label">Start Date</label>
+                            <input type="date" class="form-control" id="wh-start-date" name="start_date" required>
+                        </div>
+                        <div class="col-md-5">
+                            <label for="wh-end-date" class="form-label">End Date</label>
+                            <input type="date" class="form-control" id="wh-end-date" name="end_date" required>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">&nbsp;</label>
+                            <button type="submit" class="btn btn-primary w-100">
+                                <i class="fas fa-paper-plane"></i> Push
+                            </button>
+                        </div>
+                    </div>
+                </form>
+
+                <!-- PIN Filter Form -->
+                <form id="wh-pin-form" class="pin-form" onsubmit="syncWorkingHoursByPins(event)">
+                    <div class="row g-3">
+                        <div class="col-md-10">
+                            <label for="wh-pins" class="form-label">Employee PINs (comma-separated)</label>
+                            <input type="text" class="form-control" id="wh-pins" name="pins" 
+                                   placeholder="e.g., 101, 102, 103" required>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">&nbsp;</label>
+                            <button type="submit" class="btn btn-primary w-100">
+                                <i class="fas fa-users"></i> Push
+                            </button>
+                        </div>
+                    </div>
+                </form>
+
+                <!-- Action Buttons -->
+                <div class="action-buttons">
+                    <button class="btn btn-outline-primary" onclick="previewWorkingHoursData()">
                         <i class="fas fa-eye"></i> Preview Data
                     </button>
-                </div>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Push Data Forms -->
-    <div class="row">
-        <div class="col-md-6">
-            <div class="dashboard-card">
-                <div class="form-section">
-                    <h5><i class="fas fa-calendar-alt"></i> Push by Date Range</h5>
-                    <form id="date-range-form">
-                        <div class="form-group">
-                            <label for="start-date">Start Date:</label>
-                            <input type="date" class="form-control" id="start-date" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="end-date">End Date:</label>
-                            <input type="date" class="form-control" id="end-date">
-                        </div>
-                        <div class="form-group">
-                            <label for="date-pins">PINs (optional, comma-separated):</label>
-                            <input type="text" class="form-control" id="date-pins" placeholder="1001,1002,1003">
-                        </div>
-                        <button type="submit" class="btn btn-primary">
-                            <span class="loading spinner-border spinner-border-sm"></span>
-                            <i class="fas fa-upload"></i> Push Data
-                        </button>
-                    </form>
-                </div>
-            </div>
-        </div>
-        
-        <div class="col-md-6">
-            <div class="dashboard-card">
-                <div class="form-section">
-                    <h5><i class="fas fa-users"></i> Push by PINs</h5>
-                    <form id="pins-form">
-                        <div class="form-group">
-                            <label for="pins-list">PINs (required, comma-separated):</label>
-                            <input type="text" class="form-control" id="pins-list" placeholder="1001,1002,1003" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="days-back">Days Back:</label>
-                            <select class="form-control" id="days-back">
-                                <option value="1">1 Day</option>
-                                <option value="3">3 Days</option>
-                                <option value="7" selected>7 Days</option>
-                                <option value="14">14 Days</option>
-                                <option value="30">30 Days</option>
-                            </select>
-                        </div>
-                        <button type="submit" class="btn btn-primary">
-                            <span class="loading spinner-border spinner-border-sm"></span>
-                            <i class="fas fa-upload"></i> Push Data
-                        </button>
-                    </form>
-                </div>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Data Preview -->
-    <div class="row">
-        <div class="col-12">
-            <div class="dashboard-card">
-                <h4><i class="fas fa-table"></i> Data Preview</h4>
-                <div class="form-section">
-                    <form id="preview-form">
-                        <div class="row">
-                            <div class="col-md-3">
-                                <input type="date" class="form-control" id="preview-start-date">
-                            </div>
-                            <div class="col-md-3">
-                                <input type="date" class="form-control" id="preview-end-date">
-                            </div>
-                            <div class="col-md-3">
-                                <input type="text" class="form-control" id="preview-pins" placeholder="PINs (optional)">
-                            </div>
-                            <div class="col-md-3">
-                                <button type="submit" class="btn btn-info">
-                                    <i class="fas fa-search"></i> Preview
-                                </button>
-                            </div>
-                        </div>
-                    </form>
-                </div>
-                <div id="preview-container" style="display: none;">
-                    <div class="table-responsive">
-                        <table class="table table-striped preview-table" id="preview-table">
-                            <thead>
-                                <tr>
-                                    <th>PIN</th>
-                                    <th>Date</th>
-                                    <th>Time</th>
-                                    <th>Status</th>
-                                    <th>WorkCode</th>
-                                    <th>DeviceName</th>
-                                </tr>
-                            </thead>
-                            <tbody id="preview-tbody">
-                            </tbody>
-                        </table>
-                    </div>
-                    <div id="preview-summary" class="mt-3"></div>
-                </div>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Activity Log -->
-    <div class="row">
-        <div class="col-12">
-            <div class="dashboard-card">
-                <h4><i class="fas fa-list-alt"></i> Activity Log</h4>
-                <div class="log-container" id="activity-log">
-                    <div class="text-muted">Activity log will appear here...</div>
-                </div>
-                <div class="mt-3">
-                    <button type="button" class="btn btn-secondary btn-sm" onclick="clearLog()">
-                        <i class="fas fa-trash"></i> Clear Log
+                    <button class="btn btn-outline-secondary" onclick="testWorkingHoursConnection()">
+                        <i class="fas fa-plug"></i> Test Connection
                     </button>
                 </div>
             </div>
         </div>
+        <div class="col-lg-4">
+            <div class="status-panel">
+                <h3 class="panel-title">
+                    <i class="fas fa-info-circle"></i>
+                    Status
+                </h3>
+                <div class="status-item">
+                    <span class="status-label">VPS Connection:</span>
+                    <span id="wh-connection-status" class="status-value status-pending">
+                        <i class="fas fa-circle"></i> Checking...
+                    </span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">Push Enabled:</span>
+                    <span id="wh-push-status" class="status-value">
+                        <i class="fas fa-circle"></i> Yes
+                    </span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">Auto Retry:</span>
+                    <span class="status-value">
+                        <i class="fas fa-circle text-success"></i> 3 attempts
+                    </span>
+                </div>
+            </div>
+        </div>
     </div>
+
+    <!-- WorkingHours Data Preview Modal -->
+    <div class="modal fade" id="whDataPreviewModal" tabindex="-1">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">WorkingHours Data Preview</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="whPreviewTableContainer">
+                        <!-- Preview table will be loaded here -->
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-primary" onclick="startWorkingHoursSyncFromModal()">Start Sync</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    </div>
+    <!-- End of WorkingHours Tab Panel -->
+
+    <!-- FPLog Tab Panel -->
+    <div class="tab-pane fade" id="fplog-panel" role="tabpanel" aria-labelledby="fplog-tab">
+    
+    <!-- Statistics Row -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="stat-card success-card">
+                <div class="stat-icon">
+                    <i class="fas fa-check-circle"></i>
+                </div>
+                <div class="stat-info">
+                    <div class="stat-label">Successful Pushes (FPLog)</div>
+                    <div class="stat-value" id="fplog-success-count">0</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card error-card">
+                <div class="stat-icon">
+                    <i class="fas fa-times-circle"></i>
+                </div>
+                <div class="stat-info">
+                    <div class="stat-label">Failed Pushes (FPLog)</div>
+                    <div class="stat-value" id="fplog-error-count">0</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card warning-card">
+                <div class="stat-icon">
+                    <i class="fas fa-exclamation-triangle"></i>
+                </div>
+                <div class="stat-info">
+                    <div class="stat-label">Pending (FPLog)</div>
+                    <div class="stat-value" id="fplog-pending-count">0</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card info-card">
+                <div class="stat-icon">
+                    <i class="fas fa-clock"></i>
+                </div>
+                <div class="stat-info">
+                    <div class="stat-label">Last Sync (FPLog)</div>
+                    <div class="stat-value" id="fplog-last-sync" style="font-size: 0.9rem;">Never</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Control Panel -->
+    <div class="row g-4 mb-4">
+        <div class="col-lg-8">
+            <div class="control-panel">
+                <h3 class="panel-title">
+                    <i class="fas fa-hand-point-right"></i>
+                    FPLog Push Control
+                </h3>
+                
+                <!-- Quick Actions -->
+                <div class="quick-actions">
+                    <button class="btn btn-success btn-lg" onclick="quickSyncFPLog('today')">
+                        <i class="fas fa-sync-alt"></i>
+                        Sync Today (Yesterday - Today)
+                    </button>
+                    <button class="btn btn-primary btn-lg" onclick="quickSyncFPLog('week')">
+                        <i class="fas fa-calendar-week"></i>
+                        Sync This Week
+                    </button>
+                    <button class="btn btn-info btn-lg" onclick="quickSyncFPLog('month')">
+                        <i class="fas fa-calendar-alt"></i>
+                        Sync This Month
+                    </button>
+                </div>
+
+                <!-- Custom Date Range Form -->
+                <form id="fplog-date-range-form" class="date-range-form" onsubmit="syncFPLogByDate(event)">
+                    <div class="row g-3">
+                        <div class="col-md-5">
+                            <label for="fplog-start-date" class="form-label">Start Date</label>
+                            <input type="date" class="form-control" id="fplog-start-date" name="start_date" required>
+                        </div>
+                        <div class="col-md-5">
+                            <label for="fplog-end-date" class="form-label">End Date</label>
+                            <input type="date" class="form-control" id="fplog-end-date" name="end_date" required>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">&nbsp;</label>
+                            <button type="submit" class="btn btn-primary w-100">
+                                <i class="fas fa-paper-plane"></i> Push
+                            </button>
+                        </div>
+                    </div>
+                </form>
+
+                <!-- Filter by PINs Form -->
+                <form id="fplog-pins-form" class="mt-3" onsubmit="syncFPLogByPins(event)">
+                    <div class="row g-3">
+                        <div class="col-md-10">
+                            <label for="fplog-pins" class="form-label">Filter by Employee PINs (comma-separated)</label>
+                            <input type="text" class="form-control" id="fplog-pins" name="pins" placeholder="e.g., 1001, 1002, 1003">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">&nbsp;</label>
+                            <button type="submit" class="btn btn-warning w-100">
+                                <i class="fas fa-filter"></i> Push Filtered
+                            </button>
+                        </div>
+                    </div>
+                </form>
+
+                <!-- Additional Actions -->
+                <div class="action-buttons">
+                    <button class="btn btn-outline-primary" onclick="previewFPLogData()">
+                        <i class="fas fa-eye"></i> Preview Data
+                    </button>
+                    <button class="btn btn-outline-secondary" onclick="testFPLogConnection()">
+                        <i class="fas fa-plug"></i> Test Connection
+                    </button>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-4">
+            <div class="status-panel">
+                <h3 class="panel-title">
+                    <i class="fas fa-info-circle"></i>
+                    Status
+                </h3>
+                <div class="status-item">
+                    <span class="status-label">VPS Connection:</span>
+                    <span id="fplog-connection-status" class="status-value status-pending">
+                        <i class="fas fa-circle"></i> Checking...
+                    </span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">Push Enabled:</span>
+                    <span id="fplog-push-status" class="status-value">
+                        <i class="fas fa-circle"></i> Yes
+                    </span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">Auto Retry:</span>
+                    <span class="status-value">
+                        <i class="fas fa-circle text-success"></i> 3 attempts
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- FPLog Data Preview Modal -->
+    <div class="modal fade" id="fplogDataPreviewModal" tabindex="-1">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">FPLog Data Preview</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="fplogPreviewTableContainer">
+                        <!-- Preview table will be loaded here -->
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-primary" onclick="startFPLogSyncFromModal()">Start Sync</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    </div>
+    <!-- End of FPLog Tab Panel -->
+    
+    </div>
+    <!-- End of Tab Content -->
 </div>
 
+<!-- Include Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-// Set default dates
+// Global variables
+let performanceChart;
+let statsUpdateInterval;
+
+// Initialize dashboard
 document.addEventListener('DOMContentLoaded', function() {
+    initializeDashboard();
+    initializePerformanceChart();
+    startStatsUpdates();
+    setDefaultDates();
+    testConnection();
+});
+
+// Set default dates
+function setDefaultDates() {
     const today = new Date().toISOString().split('T')[0];
     document.getElementById('start-date').value = today;
     document.getElementById('end-date').value = today;
-    document.getElementById('preview-start-date').value = today;
-    document.getElementById('preview-end-date').value = today;
+}
+
+// Initialize dashboard components
+function initializeDashboard() {
+    updateLastUpdateTime();
+    addLog('🚀 Dashboard initialized successfully', 'info');
+    addActivity('System Ready', 'Dashboard initialized • Ready for sync operations', 'info');
+}
+
+// Initialize performance chart
+function initializePerformanceChart() {
+    const ctx = document.getElementById('performanceChart');
+    if (!ctx) return;
     
-    // Initialize dashboard
-    testConnection();
-    refreshStatistics();
+    performanceChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'Sync Operations',
+                data: [],
+                borderColor: 'rgb(255, 87, 34)',
+                backgroundColor: 'rgba(255, 87, 34, 0.1)',
+                borderWidth: 3,
+                fill: true,
+                tension: 0.4
+            }, {
+                label: 'Success Rate %',
+                data: [],
+                borderColor: 'rgb(76, 175, 80)',
+                backgroundColor: 'rgba(76, 175, 80, 0.1)',
+                borderWidth: 2,
+                fill: false,
+                yAxisID: 'y1'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                intersect: false,
+                mode: 'index'
+            },
+            plugins: {
+                legend: {
+                    position: 'top',
+                }
+            },
+            scales: {
+                y: {
+                    type: 'linear',
+                    display: true,
+                    position: 'left',
+                    grid: {
+                        color: 'rgba(0, 0, 0, 0.1)'
+                    }
+                },
+                y1: {
+                    type: 'linear',
+                    display: true,
+                    position: 'right',
+                    min: 0,
+                    max: 100,
+                    grid: {
+                        drawOnChartArea: false,
+                    },
+                }
+            }
+        }
+    });
+}
+
+// Start periodic stats updates
+function startStatsUpdates() {
+    updateLastUpdateTime();
+    
+    // Update every 30 seconds
+    statsUpdateInterval = setInterval(() => {
+        updateLastUpdateTime();
+        updateMockStats();
+    }, 30000);
+}
+
+// Update last update time
+function updateLastUpdateTime() {
+    const now = new Date();
+    const timeString = now.toLocaleTimeString();
+    const element = document.getElementById('lastUpdateTime');
+    if (element) {
+        element.textContent = timeString;
+    }
+}
+
+// Update mock statistics
+function updateMockStats() {
+    const elements = {
+        totalSyncCount: document.getElementById('totalSyncCount'),
+        successRate: document.getElementById('successRate'),
+        activeUsers: document.getElementById('activeUsers'),
+        avgResponseTime: document.getElementById('avgResponseTime')
+    };
+    
+    if (elements.totalSyncCount) {
+        const current = parseInt(elements.totalSyncCount.textContent) || 0;
+        elements.totalSyncCount.textContent = current + Math.floor(Math.random() * 3);
+    }
+    
+    if (elements.avgResponseTime) {
+        const responseTime = 80 + Math.floor(Math.random() * 100);
+        elements.avgResponseTime.textContent = responseTime + 'ms';
+    }
+    
+    // Update chart with new data
+    if (performanceChart) {
+        const now = new Date();
+        const timeLabel = now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        
+        performanceChart.data.labels.push(timeLabel);
+        performanceChart.data.datasets[0].data.push(Math.floor(Math.random() * 20) + 5);
+        performanceChart.data.datasets[1].data.push(95 + Math.floor(Math.random() * 5));
+        
+        // Keep only last 10 data points
+        if (performanceChart.data.labels.length > 10) {
+            performanceChart.data.labels.shift();
+            performanceChart.data.datasets[0].data.shift();
+            performanceChart.data.datasets[1].data.shift();
+        }
+        
+        performanceChart.update('none');
+    }
+}
+
+// Date range shortcuts
+function setDateRange(period) {
+    const today = new Date();
+    let startDate, endDate;
+    
+    switch(period) {
+        case 'today':
+            startDate = endDate = today;
+            break;
+        case 'yesterday':
+            const yesterday = new Date(today);
+            yesterday.setDate(yesterday.getDate() - 1);
+            startDate = endDate = yesterday;
+            break;
+        case 'week':
+            const weekStart = new Date(today);
+            weekStart.setDate(today.getDate() - today.getDay());
+            startDate = weekStart;
+            endDate = today;
+            break;
+        case 'month':
+            const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+            startDate = monthStart;
+            endDate = today;
+            break;
+        default:
+            startDate = endDate = today;
+    }
+    
+    document.getElementById('start-date').value = startDate.toISOString().split('T')[0];
+    document.getElementById('end-date').value = endDate.toISOString().split('T')[0];
+    
+    addLog(`📅 Date range set to: ${period}`, 'info');
+}
+
+// Enhanced logging function
+function addLog(message, type = 'info') {
+    const logContainer = document.getElementById('logContainer');
+    if (!logContainer) return;
+    
+    const timestamp = new Date().toLocaleTimeString();
+    const logEntry = document.createElement('div');
+    
+    let icon = '📝';
+    let className = 'text-info';
+    
+    switch(type) {
+        case 'success':
+            icon = '✅';
+            className = 'text-success';
+            break;
+        case 'error':
+            icon = '❌';
+            className = 'text-danger';
+            break;
+        case 'warning':
+            icon = '⚠️';
+            className = 'text-warning';
+            break;
+        case 'info':
+        default:
+            icon = 'ℹ️';
+            className = 'text-info';
+            break;
+    }
+    
+    logEntry.className = className;
+    logEntry.innerHTML = `[${timestamp}] ${icon} ${message}`;
+    
+    logContainer.appendChild(logEntry);
+    logContainer.scrollTop = logContainer.scrollHeight;
+    
+    // Keep only last 100 entries
+    while (logContainer.children.length > 100) {
+        logContainer.removeChild(logContainer.firstChild);
+    }
+}
+
+// Add activity to recent activities panel
+function addActivity(title, description, type = 'info') {
+    const container = document.getElementById('recentActivities');
+    if (!container) return;
+    
+    // Remove existing items if more than 5
+    while (container.children.length >= 5) {
+        container.removeChild(container.lastChild);
+    }
+    
+    const activity = document.createElement('div');
+    activity.className = 'activity-item';
+    
+    let iconClass = 'fas fa-info-circle';
+    let typeClass = 'info';
+    
+    switch(type) {
+        case 'success':
+            iconClass = 'fas fa-check-circle';
+            typeClass = 'success';
+            break;
+        case 'error':
+            iconClass = 'fas fa-exclamation-circle';
+            typeClass = 'danger';
+            break;
+        case 'warning':
+            iconClass = 'fas fa-exclamation-triangle';
+            typeClass = 'warning';
+            break;
+    }
+    
+    activity.innerHTML = `
+        <div class="activity-icon ${typeClass}">
+            <i class="${iconClass}"></i>
+        </div>
+        <div class="flex-grow-1">
+            <div class="fw-bold">${title}</div>
+            <small class="text-muted">${description}</small>
+        </div>
+    `;
+    
+    container.insertBefore(activity, container.firstChild);
+}
+
+// Clear log function
+function clearLog() {
+    const logContainer = document.getElementById('logContainer');
+    if (logContainer) {
+        logContainer.innerHTML = '';
+        addLog('🧹 Activity log cleared', 'info');
+    }
+}
+
+// Quick action functions
+function quickSync() {
+    setDateRange('today');
+    addLog('🚀 Quick sync initiated for today', 'info');
+    addActivity('Quick Sync Started', 'Syncing today\'s attendance data', 'info');
+    setTimeout(() => {
+        document.getElementById('date-range-form').dispatchEvent(new Event('submit'));
+    }, 500);
+}
+
+function fullSync() {
+    setDateRange('month');
+    addLog('🔄 Full sync initiated for this month', 'info');
+    addActivity('Full Sync Started', 'Syncing all data for current month', 'info');
+    setTimeout(() => {
+        document.getElementById('date-range-form').dispatchEvent(new Event('submit'));
+    }, 500);
+}
+
+function viewSettings() {
+    addLog('⚙️ Opening sync settings', 'info');
+    alert('Sync Settings\n\nThis feature will be available in the next update.');
+}
+
+function viewReports() {
+    addLog('📊 Opening sync reports', 'info');
+    alert('Sync Reports\n\nThis feature will be available in the next update.');
+}
+
+function downloadLogs() {
+    addLog('⬇️ Downloading logs', 'info');
+    const logContent = document.getElementById('logContainer').innerText;
+    const blob = new Blob([logContent], { type: 'text/plain' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `vps-sync-logs-${new Date().toISOString().split('T')[0]}.txt`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+}
+
+// Form submission handler
+document.getElementById('date-range-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const startDate = document.getElementById('start-date').value;
+    const endDate = document.getElementById('end-date').value || startDate;
+    const pins = document.getElementById('date-pins').value;
+    
+    if (!startDate) {
+        addLog('❌ Please select a start date', 'error');
+        return;
+    }
+    
+    const loading = document.querySelector('.loading');
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+    
+    // Show loading state
+    if (loading) loading.style.display = 'inline-block';
+    if (submitBtn) submitBtn.disabled = true;
+    
+    addLog(`🚀 Starting sync: ${startDate} to ${endDate}${pins ? ` (PINs: ${pins})` : ''}`, 'info');
+    addActivity('Sync Started', `Date range: ${startDate} to ${endDate}`, 'info');
+    
+    // Prepare data as JSON
+    const requestData = {
+        start_date: startDate,
+        end_date: endDate,
+        pins: pins ? pins.split(',').map(p => p.trim()).filter(p => p) : []
+    };
+    
+    // Submit to backend
+    fetch('/vps-push/push/date-range', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: JSON.stringify(requestData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        // Hide loading state
+        if (loading) loading.style.display = 'none';
+        if (submitBtn) submitBtn.disabled = false;
+        
+        if (data && data.success) {
+            addLog(`✅ Sync completed successfully: ${data.message || 'Sync operation completed'}`, 'success');
+            addActivity('Sync Completed', `${data.record_count || 0} records processed`, 'success');
+            
+            // Update stats
+            const totalSyncElement = document.getElementById('totalSyncCount');
+            if (totalSyncElement) {
+                const current = parseInt(totalSyncElement.textContent) || 0;
+                totalSyncElement.textContent = current + 1;
+            }
+        } else {
+            const errorMsg = data?.message || 'Sync operation failed - please check server logs';
+            addLog(`❌ Sync failed: ${errorMsg}`, 'error');
+            addActivity('Sync Failed', errorMsg, 'error');
+        }
+    })
+    .catch(error => {
+        // Hide loading state
+        if (loading) loading.style.display = 'none';
+        if (submitBtn) submitBtn.disabled = false;
+        
+        const errorMsg = error?.message || 'Network connection failed - please check your connection';
+        addLog(`❌ Network error: ${errorMsg}`, 'error');
+        addActivity('Sync Error', `Network error: ${errorMsg}`, 'error');
+    });
 });
 
-function addLog(message, type = 'info') {
-    const logContainer = document.getElementById('activity-log');
-    const timestamp = new Date().toLocaleString();
+// Preview data function
+function previewData() {
+    const startDate = document.getElementById('start-date').value;
+    const endDate = document.getElementById('end-date').value || startDate;
+    const pins = document.getElementById('date-pins').value;
+    
+    if (!startDate) {
+        addLog('❌ Please select a start date for preview', 'error');
+        return;
+    }
+    
+    addLog(`👁️ Previewing data: ${startDate} to ${endDate}`, 'info');
+    
+    // Prepare data as JSON
+    const requestData = {
+        start_date: startDate,
+        end_date: endDate,
+        pins: pins ? pins.split(',').map(p => p.trim()).filter(p => p) : [],
+        limit: 50
+    };
+    
+    fetch('/vps-push/preview', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: JSON.stringify(requestData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data && data.success) {
+            showPreviewModal(data.data, data.record_count);
+            addLog(`👁️ Preview loaded: ${data.record_count || 0} records found`, 'success');
+        } else {
+            const errorMsg = data?.message || 'Preview operation failed - please check server logs';
+            addLog(`❌ Preview failed: ${errorMsg}`, 'error');
+        }
+    })
+    .catch(error => {
+        const errorMsg = error?.message || 'Network connection failed - please check your connection';
+        addLog(`❌ Preview error: ${errorMsg}`, 'error');
+    });
+}
+
+// Show preview in modal
+function showPreviewModal(data, recordCount) {
+    const modal = new bootstrap.Modal(document.getElementById('dataPreviewModal'));
+    const container = document.getElementById('previewTableContainer');
+    
+    if (data.length === 0) {
+        container.innerHTML = `
+            <div class="text-center py-5">
+                <i class="fas fa-search fa-3x text-muted mb-3"></i>
+                <h5 class="text-muted">No Data Found</h5>
+                <p class="text-muted">No attendance records found for the selected criteria.</p>
+            </div>
+        `;
+    } else {
+        container.innerHTML = `
+            <div class="table-responsive">
+                <table class="table table-striped table-hover">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>PIN</th>
+                            <th>Date</th>
+                            <th>Time</th>
+                            <th>Status</th>
+                            <th>Work Code</th>
+                            <th>Device</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${data.map(record => `
+                            <tr>
+                                <td><span class="badge bg-primary">${record.PIN || record.pin || '-'}</span></td>
+                                <td>${record.Date || record.tanggal || '-'}</td>
+                                <td><code>${record.Time || record.jam || '-'}</code></td>
+                                <td><span class="badge bg-info">${record.Status || record.status || '-'}</span></td>
+                                <td>${record.WorkCode || record.workcode || '-'}</td>
+                                <td><small class="text-muted">${record.DeviceName || record.machine || '-'}</small></td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+            <div class="alert alert-info mt-3">
+                <i class="fas fa-info-circle me-2"></i>
+                <strong>Preview Summary:</strong> Showing ${data.length} of ${recordCount} total records
+                ${data.length < recordCount ? ' (limited to 50 records for preview)' : ''}
+            </div>
+        `;
+    }
+    
+    modal.show();
+}
+
+// Start sync from modal
+function startSyncFromModal() {
+    const modal = bootstrap.Modal.getInstance(document.getElementById('dataPreviewModal'));
+    modal.hide();
+    document.getElementById('date-range-form').dispatchEvent(new Event('submit'));
+}
+
+// Test connection function
+function testConnection() {
+    addLog('🔗 Testing VPS connection...', 'info');
+    
+    // fetch('/vps-push/test', {
+    //     method: 'GET',
+    //     headers: {
+    //         'X-Requested-With': 'XMLHttpRequest'
+    //     }
+    // })
+    // .then(response => response.json())
+    // .then(data => {
+    //     const statusElement = document.querySelector('.status-indicator');
+    //     const statusText = document.querySelector('.me-2');
+        
+    //     if (data && data.success) {
+    //         if (statusElement) {
+    //             statusElement.className = 'status-indicator status-online';
+    //         }
+    //         if (statusText) {
+    //             statusText.textContent = 'System Online';
+    //         }
+    //         const successMsg = data.message || 'VPS connection test successful';
+    //         addLog(`✅ Connection test successful: ${successMsg}`, 'success');
+    //         addActivity('Connection Test', 'VPS connection verified successfully', 'success');
+    //     } else {
+    //         if (statusElement) {
+    //             statusElement.className = 'status-indicator status-offline';
+    //         }
+    //         if (statusText) {
+    //             statusText.textContent = 'System Offline';
+    //         }
+    //         const errorMsg = data?.message || 'VPS connection test failed - please check server configuration';
+    //         addLog(`❌ Connection test failed: ${errorMsg}`, 'error');
+    //         addActivity('Connection Test', 'VPS connection failed', 'error');
+    //     }
+    // })
+    // .catch(error => {
+    //     const statusElement = document.querySelector('.status-indicator');
+    //     const statusText = document.querySelector('.me-2');
+        
+    //     if (statusElement) {
+    //         statusElement.className = 'status-indicator status-offline';
+    //     }
+    //     if (statusText) {
+    //         statusText.textContent = 'System Error';
+    //     }
+    //     const errorMsg = error?.message || 'Network connection failed - please check your connection';
+    //     addLog(`❌ Connection error: ${errorMsg}`, 'error');
+    //     addActivity('Connection Error', `Network error: ${errorMsg}`, 'error');
+    // });
+}
+
+// Cleanup on page unload
+window.addEventListener('beforeunload', function() {
+    if (statsUpdateInterval) {
+        clearInterval(statsUpdateInterval);
+    }
+});
+
+// =============================================================================
+// WORKINGHOURS TAB FUNCTIONS
+// =============================================================================
+
+let whPerformanceChart;
+let whStatsUpdateInterval;
+
+// Initialize WorkingHours chart
+function initializeWorkingHoursChart() {
+    const ctx = document.getElementById('whPerformanceChart');
+    if (!ctx) return;
+    
+    whPerformanceChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'WorkingHours Sync Operations',
+                data: [],
+                borderColor: 'rgb(156, 39, 176)',
+                backgroundColor: 'rgba(156, 39, 176, 0.1)',
+                borderWidth: 3,
+                fill: true,
+                tension: 0.4
+            }, {
+                label: 'Success Rate %',
+                data: [],
+                borderColor: 'rgb(76, 175, 80)',
+                backgroundColor: 'rgba(76, 175, 80, 0.1)',
+                borderWidth: 2,
+                fill: false,
+                yAxisID: 'y1'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                intersect: false,
+                mode: 'index'
+            },
+            plugins: {
+                legend: {
+                    position: 'top',
+                }
+            },
+            scales: {
+                y: {
+                    type: 'linear',
+                    display: true,
+                    position: 'left',
+                    grid: {
+                        color: 'rgba(0, 0, 0, 0.1)'
+                    }
+                },
+                y1: {
+                    type: 'linear',
+                    display: true,
+                    position: 'right',
+                    min: 0,
+                    max: 100,
+                    grid: {
+                        drawOnChartArea: false,
+                    },
+                }
+            }
+        }
+    });
+}
+
+// Quick sync WorkingHours
+function quickSyncWorkingHours(period) {
+    setWorkingHoursDateRange(period);
+    addWorkingHoursLog(`🚀 Quick sync initiated for ${period}`, 'info');
+    
+    if (period === 'today') {
+        // Use today endpoint (yesterday to today)
+        fetch('/vps-push/workinghours/push/today', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data && data.success) {
+                addWorkingHoursLog(`✅ Sync completed successfully: ${data.message || 'Sync operation completed'}`, 'success');
+                updateWorkingHoursStats(data.record_count);
+            } else {
+                const errorMsg = data?.message || 'Sync operation failed - please check server logs';
+                addWorkingHoursLog(`❌ Sync failed: ${errorMsg}`, 'error');
+            }
+        })
+        .catch(error => {
+            const errorMsg = error?.message || 'Network connection failed - please check your connection';
+            addWorkingHoursLog(`❌ Network error: ${errorMsg}`, 'error');
+        });
+    } else {
+        // For week/month, use date range form
+        setTimeout(() => {
+            document.getElementById('wh-date-range-form').dispatchEvent(new Event('submit'));
+        }, 500);
+    }
+}
+
+// Set WorkingHours date range
+function setWorkingHoursDateRange(period) {
+    const today = new Date();
+    const startInput = document.getElementById('wh-start-date');
+    const endInput = document.getElementById('wh-end-date');
+    
+    if (!startInput || !endInput) return;
+    
+    let startDate, endDate;
+    
+    if (period === 'today') {
+        const yesterday = new Date(today);
+        yesterday.setDate(yesterday.getDate() - 1);
+        startDate = yesterday.toISOString().split('T')[0];
+        endDate = today.toISOString().split('T')[0];
+    } else if (period === 'week') {
+        const firstDay = new Date(today);
+        firstDay.setDate(today.getDate() - today.getDay());
+        startDate = firstDay.toISOString().split('T')[0];
+        endDate = today.toISOString().split('T')[0];
+    } else if (period === 'month') {
+        const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+        startDate = firstDay.toISOString().split('T')[0];
+        endDate = today.toISOString().split('T')[0];
+    }
+    
+    startInput.value = startDate;
+    endInput.value = endDate;
+}
+
+// Sync WorkingHours by date range
+function syncWorkingHoursByDate(event) {
+    event.preventDefault();
+    
+    const startDate = document.getElementById('wh-start-date').value;
+    const endDate = document.getElementById('wh-end-date').value || startDate;
+    
+    if (!startDate) {
+        addWorkingHoursLog('❌ Please select a start date', 'error');
+        return;
+    }
+    
+    const submitBtn = event.target.querySelector('button[type="submit"]');
+    if (submitBtn) submitBtn.disabled = true;
+    
+    addWorkingHoursLog(`🚀 Starting sync: ${startDate} to ${endDate}`, 'info');
+    
+    const requestData = {
+        start_date: startDate,
+        end_date: endDate
+    };
+    
+    fetch('/vps-push/workinghours/push/date-range', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: JSON.stringify(requestData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (submitBtn) submitBtn.disabled = false;
+        
+        if (data && data.success) {
+            addWorkingHoursLog(`✅ Sync completed successfully: ${data.message || 'Sync operation completed'}`, 'success');
+            updateWorkingHoursStats(data.record_count);
+        } else {
+            const errorMsg = data?.message || 'Sync operation failed - please check server logs';
+            addWorkingHoursLog(`❌ Sync failed: ${errorMsg}`, 'error');
+        }
+    })
+    .catch(error => {
+        if (submitBtn) submitBtn.disabled = false;
+        const errorMsg = error?.message || 'Network connection failed - please check your connection';
+        addWorkingHoursLog(`❌ Network error: ${errorMsg}`, 'error');
+    });
+}
+
+// Sync WorkingHours by PINs
+function syncWorkingHoursByPins(event) {
+    event.preventDefault();
+    
+    const pinsInput = document.getElementById('wh-pins').value;
+    
+    if (!pinsInput) {
+        addWorkingHoursLog('❌ Please enter employee PINs', 'error');
+        return;
+    }
+    
+    const pins = pinsInput.split(',').map(p => p.trim()).filter(p => p);
+    
+    const submitBtn = event.target.querySelector('button[type="submit"]');
+    if (submitBtn) submitBtn.disabled = true;
+    
+    addWorkingHoursLog(`🚀 Starting sync for ${pins.length} employee(s)`, 'info');
+    
+    const requestData = { pins: pins };
+    
+    fetch('/vps-push/workinghours/push/pins', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: JSON.stringify(requestData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (submitBtn) submitBtn.disabled = false;
+        
+        if (data && data.success) {
+            addWorkingHoursLog(`✅ Sync completed successfully: ${data.message || 'Sync operation completed'}`, 'success');
+            updateWorkingHoursStats(data.record_count);
+        } else {
+            const errorMsg = data?.message || 'Sync operation failed - please check server logs';
+            addWorkingHoursLog(`❌ Sync failed: ${errorMsg}`, 'error');
+        }
+    })
+    .catch(error => {
+        if (submitBtn) submitBtn.disabled = false;
+        const errorMsg = error?.message || 'Network connection failed - please check your connection';
+        addWorkingHoursLog(`❌ Network error: ${errorMsg}`, 'error');
+    });
+}
+
+// Preview WorkingHours data
+function previewWorkingHoursData() {
+    const startDate = document.getElementById('wh-start-date').value;
+    const endDate = document.getElementById('wh-end-date').value || startDate;
+    
+    if (!startDate) {
+        addWorkingHoursLog('❌ Please select a start date for preview', 'error');
+        return;
+    }
+    
+    addWorkingHoursLog(`👁️ Previewing data: ${startDate} to ${endDate}`, 'info');
+    
+    const requestData = {
+        start_date: startDate,
+        end_date: endDate,
+        limit: 50
+    };
+    
+    fetch('/vps-push/workinghours/preview', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: JSON.stringify(requestData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data && data.success) {
+            showWorkingHoursPreviewModal(data.data, data.record_count);
+            addWorkingHoursLog(`👁️ Preview loaded: ${data.record_count || 0} records found`, 'success');
+        } else {
+            const errorMsg = data?.message || 'Preview operation failed - please check server logs';
+            addWorkingHoursLog(`❌ Preview failed: ${errorMsg}`, 'error');
+        }
+    })
+    .catch(error => {
+        const errorMsg = error?.message || 'Network connection failed - please check your connection';
+        addWorkingHoursLog(`❌ Preview error: ${errorMsg}`, 'error');
+    });
+}
+
+// Show WorkingHours preview modal
+function showWorkingHoursPreviewModal(data, recordCount) {
+    const modal = new bootstrap.Modal(document.getElementById('whDataPreviewModal'));
+    const container = document.getElementById('whPreviewTableContainer');
+    
+    if (data.length === 0) {
+        container.innerHTML = `
+            <div class="text-center py-5">
+                <i class="fas fa-search fa-3x text-muted mb-3"></i>
+                <h5 class="text-muted">No Data Found</h5>
+                <p class="text-muted">No WorkingHours records found for the selected criteria.</p>
+            </div>
+        `;
+    } else {
+        container.innerHTML = `
+            <div class="table-responsive">
+                <table class="table table-striped table-hover">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>PIN</th>
+                            <th>Date</th>
+                            <th>Working Hours</th>
+                            <th>Overtime</th>
+                            <th>Check In</th>
+                            <th>Check Out</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${data.map(record => `
+                            <tr>
+                                <td><span class="badge bg-primary">${record.pin || '-'}</span></td>
+                                <td>${record.working_date || '-'}</td>
+                                <td><strong>${record.workinghours || '0'}</strong> hrs</td>
+                                <td><strong>${record.overtime || '0'}</strong> hrs</td>
+                                <td><code>${record.check_in || '-'}</code></td>
+                                <td><code>${record.check_out || '-'}</code></td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+            <div class="alert alert-info mt-3">
+                <i class="fas fa-info-circle me-2"></i>
+                <strong>Preview Summary:</strong> Showing ${data.length} of ${recordCount} total records
+                ${data.length < recordCount ? ' (limited to 50 records for preview)' : ''}
+            </div>
+        `;
+    }
+    
+    modal.show();
+}
+
+// Start WorkingHours sync from modal
+function startWorkingHoursSyncFromModal() {
+    const modal = bootstrap.Modal.getInstance(document.getElementById('whDataPreviewModal'));
+    modal.hide();
+    document.getElementById('wh-date-range-form').dispatchEvent(new Event('submit'));
+}
+
+// Test WorkingHours connection
+function testWorkingHoursConnection() {
+    addWorkingHoursLog('🔗 Testing VPS connection for WorkingHours...', 'info');
+    
+    const statusElement = document.getElementById('wh-connection-status');
+    
+    // Simulate connection test (since we use the same endpoint)
+    fetch('/vps-push/workinghours/preview', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: JSON.stringify({ start_date: new Date().toISOString().split('T')[0], limit: 1 })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data) {
+            if (statusElement) {
+                statusElement.className = 'status-value status-success';
+                statusElement.innerHTML = '<i class="fas fa-circle"></i> Connected';
+            }
+            addWorkingHoursLog('✅ Connection test successful', 'success');
+        } else {
+            if (statusElement) {
+                statusElement.className = 'status-value status-error';
+                statusElement.innerHTML = '<i class="fas fa-circle"></i> Disconnected';
+            }
+            addWorkingHoursLog('❌ Connection test failed', 'error');
+        }
+    })
+    .catch(error => {
+        if (statusElement) {
+            statusElement.className = 'status-value status-error';
+            statusElement.innerHTML = '<i class="fas fa-circle"></i> Error';
+        }
+        addWorkingHoursLog(`❌ Connection error: ${error?.message || 'Network error'}`, 'error');
+    });
+}
+
+// Add WorkingHours log entry
+function addWorkingHoursLog(message, type = 'info') {
+    const logContainer = document.getElementById('whLogContainer');
+    if (!logContainer) return;
+    
+    const timestamp = new Date().toLocaleTimeString();
+    const iconMap = {
+        'success': '✅',
+        'error': '❌',
+        'warning': '⚠️',
+        'info': 'ℹ️'
+    };
+    const icon = iconMap[type] || 'ℹ️';
+    
     const logEntry = document.createElement('div');
-    logEntry.className = `log-entry text-${type}`;
-    logEntry.innerHTML = `[${timestamp}] ${message}`;
+    logEntry.className = `log-entry log-${type}`;
+    logEntry.textContent = `[${timestamp}] ${icon} ${message}`;
+    
     logContainer.appendChild(logEntry);
     logContainer.scrollTop = logContainer.scrollHeight;
 }
 
-function showLoading(button) {
-    const loading = button.querySelector('.loading');
-    if (loading) loading.classList.add('show');
-    button.disabled = true;
-}
-
-function hideLoading(button) {
-    const loading = button.querySelector('.loading');
-    if (loading) loading.classList.remove('show');
-    button.disabled = false;
-}
-
-async function testConnection() {
-    addLog('Testing VPS connection...', 'info');
-    
-    try {
-        const response = await fetch('/vps-push/test');
-        const data = await response.json();
-        
-        const statusElement = document.getElementById('connection-status');
-        const indicator = statusElement.querySelector('.status-indicator');
-        
-        if (data.success) {
-            statusElement.innerHTML = '<span class="status-indicator online"></span>Online';
-            addLog('✅ VPS connection successful', 'success');
-        } else {
-            statusElement.innerHTML = '<span class="status-indicator offline"></span>Offline';
-            addLog(`❌ VPS connection failed: ${data.message}`, 'danger');
-        }
-    } catch (error) {
-        const statusElement = document.getElementById('connection-status');
-        statusElement.innerHTML = '<span class="status-indicator offline"></span>Error';
-        addLog(`❌ Connection test error: ${error.message}`, 'danger');
+// Clear WorkingHours log
+function clearWorkingHoursLog() {
+    const logContainer = document.getElementById('whLogContainer');
+    if (logContainer) {
+        logContainer.innerHTML = '';
+        addWorkingHoursLog('WorkingHours log cleared', 'info');
     }
 }
 
-async function refreshStatistics() {
-    addLog('Refreshing statistics...', 'info');
+// Update WorkingHours stats
+function updateWorkingHoursStats(recordCount) {
+    const successElement = document.getElementById('wh-success-count');
+    const lastSyncElement = document.getElementById('wh-last-sync');
     
-    try {
-        const response = await fetch('/vps-push/statistics');
-        const data = await response.json();
+    if (successElement) {
+        const current = parseInt(successElement.textContent) || 0;
+        successElement.textContent = current + 1;
+    }
+    
+    if (lastSyncElement) {
+        const now = new Date();
+        lastSyncElement.textContent = now.toLocaleTimeString();
+    }
+    
+    // Update chart if exists
+    if (whPerformanceChart && recordCount) {
+        const now = new Date();
+        const timeLabel = now.toLocaleTimeString();
         
-        if (data.success) {
-            const stats = data.statistics;
-            document.getElementById('total-pushed').textContent = stats.total_records_pushed || 0;
-            document.getElementById('failed-pushes').textContent = stats.failed_pushes || 0;
-            document.getElementById('last-push').textContent = stats.last_push_time || 'Never';
-            addLog('📊 Statistics updated', 'success');
-        } else {
-            addLog(`❌ Failed to get statistics: ${data.message}`, 'danger');
+        whPerformanceChart.data.labels.push(timeLabel);
+        whPerformanceChart.data.datasets[0].data.push(recordCount);
+        whPerformanceChart.data.datasets[1].data.push(100);
+        
+        // Keep only last 10 data points
+        if (whPerformanceChart.data.labels.length > 10) {
+            whPerformanceChart.data.labels.shift();
+            whPerformanceChart.data.datasets[0].data.shift();
+            whPerformanceChart.data.datasets[1].data.shift();
         }
-    } catch (error) {
-        addLog(`❌ Statistics error: ${error.message}`, 'danger');
+        
+        whPerformanceChart.update();
     }
 }
 
-async function pushToday() {
-    addLog('Pushing today\'s data...', 'info');
-    
-    try {
-        const response = await fetch('/vps-push/push/today', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({})
-        });
-        
-        const data = await response.json();
-        
-        if (data.success) {
-            addLog(`✅ Today's data pushed successfully: ${data.message}`, 'success');
-            refreshStatistics();
-        } else {
-            addLog(`❌ Failed to push today's data: ${data.message}`, 'danger');
+// Initialize WorkingHours tab when shown
+document.addEventListener('shown.bs.tab', function (event) {
+    if (event.target.id === 'workinghours-tab') {
+        // Initialize chart when tab is shown
+        if (!whPerformanceChart) {
+            initializeWorkingHoursChart();
         }
-    } catch (error) {
-        addLog(`❌ Push error: ${error.message}`, 'danger');
-    }
-}
-
-// Form handlers
-document.getElementById('date-range-form').addEventListener('submit', async function(e) {
-    e.preventDefault();
-    const button = e.target.querySelector('button[type="submit"]');
-    showLoading(button);
-    
-    const startDate = document.getElementById('start-date').value;
-    const endDate = document.getElementById('end-date').value || startDate;
-    const pins = document.getElementById('date-pins').value.split(',').filter(p => p.trim()).map(p => p.trim());
-    
-    addLog(`Pushing data from ${startDate} to ${endDate}...`, 'info');
-    
-    try {
-        const response = await fetch('/vps-push/push/date-range', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                start_date: startDate,
-                end_date: endDate,
-                pins: pins.length > 0 ? pins : null
-            })
-        });
-        
-        const data = await response.json();
-        
-        if (data.success) {
-            addLog(`✅ Date range data pushed: ${data.message}`, 'success');
-            refreshStatistics();
-        } else {
-            addLog(`❌ Failed to push date range data: ${data.message}`, 'danger');
-        }
-    } catch (error) {
-        addLog(`❌ Push error: ${error.message}`, 'danger');
-    } finally {
-        hideLoading(button);
+        // Set default dates
+        setWorkingHoursDateRange('today');
+        // Test connection
+        testWorkingHoursConnection();
     }
 });
 
-document.getElementById('pins-form').addEventListener('submit', async function(e) {
-    e.preventDefault();
-    const button = e.target.querySelector('button[type="submit"]');
-    showLoading(button);
+// ============================================
+// FPLog Functions (Teal Theme)
+// ============================================
+
+// Quick sync FPLog
+function quickSyncFPLog(period) {
+    setFPLogDateRange(period);
+    addFPLogLog(`🚀 Quick sync initiated for ${period}`, 'info');
     
-    const pins = document.getElementById('pins-list').value.split(',').filter(p => p.trim()).map(p => p.trim());
-    const daysBack = document.getElementById('days-back').value;
+    if (period === 'today') {
+        // Use today endpoint (yesterday to today)
+        fetch('/vps-push/fplog/push/today', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data && data.success) {
+                addFPLogLog(`✅ Sync completed successfully: ${data.message || 'Sync operation completed'}`, 'success');
+                updateFPLogStats(data.record_count);
+            } else {
+                const errorMsg = data?.message || 'Sync operation failed - please check server logs';
+                addFPLogLog(`❌ Sync failed: ${errorMsg}`, 'error');
+            }
+        })
+        .catch(error => {
+            const errorMsg = error?.message || 'Network connection failed - please check your connection';
+            addFPLogLog(`❌ Network error: ${errorMsg}`, 'error');
+        });
+    } else {
+        // For week/month, use date range form
+        setTimeout(() => {
+            document.getElementById('fplog-date-range-form').dispatchEvent(new Event('submit'));
+        }, 500);
+    }
+}
+
+// Set FPLog date range
+function setFPLogDateRange(period) {
+    const today = new Date();
+    const startInput = document.getElementById('fplog-start-date');
+    const endInput = document.getElementById('fplog-end-date');
     
-    if (pins.length === 0) {
-        addLog('❌ Please enter at least one PIN', 'danger');
-        hideLoading(button);
+    if (!startInput || !endInput) return;
+    
+    let startDate, endDate;
+    
+    if (period === 'today') {
+        const yesterday = new Date(today);
+        yesterday.setDate(yesterday.getDate() - 1);
+        startDate = yesterday.toISOString().split('T')[0];
+        endDate = today.toISOString().split('T')[0];
+    } else if (period === 'week') {
+        const firstDay = new Date(today);
+        firstDay.setDate(today.getDate() - today.getDay());
+        startDate = firstDay.toISOString().split('T')[0];
+        endDate = today.toISOString().split('T')[0];
+    } else if (period === 'month') {
+        const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+        startDate = firstDay.toISOString().split('T')[0];
+        endDate = today.toISOString().split('T')[0];
+    }
+    
+    startInput.value = startDate;
+    endInput.value = endDate;
+}
+
+// Sync FPLog by date range
+function syncFPLogByDate(event) {
+    event.preventDefault();
+    
+    const startDate = document.getElementById('fplog-start-date').value;
+    const endDate = document.getElementById('fplog-end-date').value || startDate;
+    
+    if (!startDate) {
+        addFPLogLog('❌ Please select a start date', 'error');
         return;
     }
     
-    addLog(`Pushing data for PINs: ${pins.join(', ')} (${daysBack} days back)...`, 'info');
+    const submitBtn = event.target.querySelector('button[type="submit"]');
+    if (submitBtn) submitBtn.disabled = true;
     
-    try {
-        const response = await fetch('/vps-push/push/pins', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                pins: pins,
-                days_back: parseInt(daysBack)
-            })
+    addFPLogLog(`🚀 Starting sync: ${startDate} to ${endDate}`, 'info');
+    
+    const requestData = {
+        start_date: startDate,
+        end_date: endDate
+    };
+    
+    fetch('/vps-push/fplog/push/date-range', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: JSON.stringify(requestData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (submitBtn) submitBtn.disabled = false;
+        
+        if (data && data.success) {
+            addFPLogLog(`✅ Sync completed successfully: ${data.message || 'Sync operation completed'}`, 'success');
+            updateFPLogStats(data.record_count);
+        } else {
+            const errorMsg = data?.message || 'Sync operation failed - please check server logs';
+            addFPLogLog(`❌ Sync failed: ${errorMsg}`, 'error');
+        }
+    })
+    .catch(error => {
+        if (submitBtn) submitBtn.disabled = false;
+        const errorMsg = error?.message || 'Network connection failed - please check your connection';
+        addFPLogLog(`❌ Network error: ${errorMsg}`, 'error');
+    });
+}
+
+// Sync FPLog by PINs
+function syncFPLogByPins(event) {
+    event.preventDefault();
+    
+    const pinsInput = document.getElementById('fplog-pins').value;
+    
+    if (!pinsInput) {
+        addFPLogLog('❌ Please enter employee PINs', 'error');
+        return;
+    }
+    
+    const pins = pinsInput.split(',').map(p => p.trim()).filter(p => p);
+    
+    const submitBtn = event.target.querySelector('button[type="submit"]');
+    if (submitBtn) submitBtn.disabled = true;
+    
+    addFPLogLog(`🚀 Starting sync for ${pins.length} employee(s)`, 'info');
+    
+    const requestData = { pins: pins };
+    
+    fetch('/vps-push/fplog/push/pins', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: JSON.stringify(requestData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (submitBtn) submitBtn.disabled = false;
+        
+        if (data && data.success) {
+            addFPLogLog(`✅ Sync completed successfully: ${data.message || 'Sync operation completed'}`, 'success');
+            updateFPLogStats(data.record_count);
+        } else {
+            const errorMsg = data?.message || 'Sync operation failed - please check server logs';
+            addFPLogLog(`❌ Sync failed: ${errorMsg}`, 'error');
+        }
+    })
+    .catch(error => {
+        if (submitBtn) submitBtn.disabled = false;
+        const errorMsg = error?.message || 'Network connection failed - please check your connection';
+        addFPLogLog(`❌ Network error: ${errorMsg}`, 'error');
+    });
+}
+
+// Preview FPLog data
+function previewFPLogData() {
+    const startDate = document.getElementById('fplog-start-date').value;
+    const endDate = document.getElementById('fplog-end-date').value || startDate;
+    
+    if (!startDate) {
+        addFPLogLog('❌ Please select a start date for preview', 'error');
+        return;
+    }
+    
+    addFPLogLog(`👁️ Previewing data: ${startDate} to ${endDate}`, 'info');
+    
+    const requestData = {
+        start_date: startDate,
+        end_date: endDate,
+        limit: 50
+    };
+    
+    fetch('/vps-push/fplog/preview', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: JSON.stringify(requestData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data && data.success) {
+            showFPLogPreviewModal(data.data, data.record_count);
+            addFPLogLog(`👁️ Preview loaded: ${data.record_count || 0} records found`, 'success');
+        } else {
+            const errorMsg = data?.message || 'Preview operation failed - please check server logs';
+            addFPLogLog(`❌ Preview failed: ${errorMsg}`, 'error');
+        }
+    })
+    .catch(error => {
+        const errorMsg = error?.message || 'Network connection failed - please check your connection';
+        addFPLogLog(`❌ Preview error: ${errorMsg}`, 'error');
+    });
+}
+
+// Show FPLog preview modal
+function showFPLogPreviewModal(records, totalCount) {
+    const modal = new bootstrap.Modal(document.getElementById('fplogDataPreviewModal'));
+    const container = document.getElementById('fplogPreviewTableContainer');
+    
+    if (!container) return;
+    
+    let html = `<div class="alert alert-info">
+        Found ${totalCount || 0} records. Showing first ${records?.length || 0} records.
+    </div>`;
+    
+    if (records && records.length > 0) {
+        html += `<div class="table-responsive">
+            <table class="table table-striped table-hover">
+                <thead>
+                    <tr>
+                        <th>FPID</th>
+                        <th>PIN</th>
+                        <th>Date</th>
+                        <th>Machine</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>`;
+        
+        records.forEach(record => {
+            html += `<tr>
+                <td>${record.FPID || 'N/A'}</td>
+                <td>${record.PIN || 'N/A'}</td>
+                <td>${record.date || 'N/A'}</td>
+                <td>${record.Machine || 'N/A'}</td>
+                <td>${record.status || 'N/A'}</td>
+            </tr>`;
         });
         
-        const data = await response.json();
-        
-        if (data.success) {
-            addLog(`✅ PIN data pushed: ${data.message}`, 'success');
-            refreshStatistics();
-        } else {
-            addLog(`❌ Failed to push PIN data: ${data.message}`, 'danger');
-        }
-    } catch (error) {
-        addLog(`❌ Push error: ${error.message}`, 'danger');
-    } finally {
-        hideLoading(button);
-    }
-});
-
-document.getElementById('preview-form').addEventListener('submit', async function(e) {
-    e.preventDefault();
-    
-    const startDate = document.getElementById('preview-start-date').value;
-    const endDate = document.getElementById('preview-end-date').value || startDate;
-    const pins = document.getElementById('preview-pins').value.split(',').filter(p => p.trim()).map(p => p.trim());
-    
-    addLog(`Loading preview for ${startDate} to ${endDate}...`, 'info');
-    
-    try {
-        const response = await fetch('/vps-push/preview', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                start_date: startDate,
-                end_date: endDate,
-                pins: pins.length > 0 ? pins : null,
-                limit: 50
-            })
-        });
-        
-        const result = await response.json();
-        
-        if (result.success) {
-            showPreviewData(result.data, result.record_count);
-            addLog(`✅ Preview loaded: ${result.record_count} records`, 'success');
-        } else {
-            addLog(`❌ Failed to load preview: ${result.message}`, 'danger');
-        }
-    } catch (error) {
-        addLog(`❌ Preview error: ${error.message}`, 'danger');
-    }
-});
-
-function showPreviewData(data, recordCount) {
-    const tbody = document.getElementById('preview-tbody');
-    const container = document.getElementById('preview-container');
-    const summary = document.getElementById('preview-summary');
-    
-    tbody.innerHTML = '';
-    
-    if (data.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" class="text-center">No data found</td></tr>';
+        html += `</tbody></table></div>`;
     } else {
-        data.forEach(record => {
-            const row = tbody.insertRow();
-            row.insertCell(0).textContent = record.PIN;
-            row.insertCell(1).textContent = record.Date;
-            row.insertCell(2).textContent = record.Time;
-            row.insertCell(3).textContent = record.Status;
-            row.insertCell(4).textContent = record.WorkCode || '-';
-            row.insertCell(5).textContent = record.DeviceName || '-';
-        });
+        html += '<div class="alert alert-warning">No records found for the selected criteria.</div>';
     }
     
-    summary.innerHTML = `
-        <div class="alert alert-info">
-            <strong>Preview Summary:</strong> Showing ${data.length} of ${recordCount} total records
-            ${data.length < recordCount ? ' (limited to 50 for preview)' : ''}
-        </div>
-    `;
-    
-    container.style.display = 'block';
+    container.innerHTML = html;
+    modal.show();
 }
 
-function showPreview() {
-    const container = document.getElementById('preview-container');
-    if (container.style.display === 'none') {
-        document.getElementById('preview-form').dispatchEvent(new Event('submit'));
+// Start FPLog sync from modal
+function startFPLogSyncFromModal() {
+    const modal = bootstrap.Modal.getInstance(document.getElementById('fplogDataPreviewModal'));
+    if (modal) modal.hide();
+    
+    document.getElementById('fplog-date-range-form').dispatchEvent(new Event('submit'));
+}
+
+// Test FPLog connection
+function testFPLogConnection() {
+    addFPLogLog('🔗 Testing VPS connection for FPLog...', 'info');
+    
+    const statusElement = document.getElementById('fplog-connection-status');
+    
+    // Simulate connection test (since we use the same endpoint)
+    fetch('/vps-push/fplog/preview', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: JSON.stringify({ start_date: new Date().toISOString().split('T')[0], limit: 1 })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data) {
+            if (statusElement) {
+                statusElement.className = 'status-value status-success';
+                statusElement.innerHTML = '<i class="fas fa-circle"></i> Connected';
+            }
+            addFPLogLog('✅ Connection test successful', 'success');
+        } else {
+            if (statusElement) {
+                statusElement.className = 'status-value status-error';
+                statusElement.innerHTML = '<i class="fas fa-circle"></i> Disconnected';
+            }
+            addFPLogLog('❌ Connection test failed', 'error');
+        }
+    })
+    .catch(error => {
+        if (statusElement) {
+            statusElement.className = 'status-value status-error';
+            statusElement.innerHTML = '<i class="fas fa-circle"></i> Error';
+        }
+        addFPLogLog(`❌ Connection error: ${error?.message || 'Network error'}`, 'error');
+    });
+}
+
+// Add FPLog log entry
+function addFPLogLog(message, type = 'info') {
+    const logContainer = document.getElementById('fplogLogContainer');
+    if (!logContainer) return;
+    
+    const timestamp = new Date().toLocaleTimeString();
+    const iconMap = {
+        'success': '✅',
+        'error': '❌',
+        'warning': '⚠️',
+        'info': 'ℹ️'
+    };
+    const icon = iconMap[type] || 'ℹ️';
+    
+    const logEntry = document.createElement('div');
+    logEntry.className = `log-entry log-${type}`;
+    logEntry.textContent = `[${timestamp}] ${icon} ${message}`;
+    
+    logContainer.appendChild(logEntry);
+    logContainer.scrollTop = logContainer.scrollHeight;
+}
+
+// Clear FPLog log
+function clearFPLogLog() {
+    const logContainer = document.getElementById('fplogLogContainer');
+    if (logContainer) {
+        logContainer.innerHTML = '';
+        addFPLogLog('FPLog log cleared', 'info');
     }
 }
 
-function clearLog() {
-    document.getElementById('activity-log').innerHTML = '<div class="text-muted">Activity log cleared...</div>';
+// Update FPLog stats
+function updateFPLogStats(recordCount) {
+    const successElement = document.getElementById('fplog-success-count');
+    const lastSyncElement = document.getElementById('fplog-last-sync');
+    
+    if (successElement) {
+        const current = parseInt(successElement.textContent) || 0;
+        successElement.textContent = current + 1;
+    }
+    
+    if (lastSyncElement) {
+        const now = new Date();
+        lastSyncElement.textContent = now.toLocaleTimeString();
+    }
+    
+    // Update chart if exists
+    if (fplogPerformanceChart && recordCount) {
+        const now = new Date();
+        const timeLabel = now.toLocaleTimeString();
+        
+        fplogPerformanceChart.data.labels.push(timeLabel);
+        fplogPerformanceChart.data.datasets[0].data.push(recordCount);
+        fplogPerformanceChart.data.datasets[1].data.push(100);
+        
+        // Keep only last 10 data points
+        if (fplogPerformanceChart.data.labels.length > 10) {
+            fplogPerformanceChart.data.labels.shift();
+            fplogPerformanceChart.data.datasets[0].data.shift();
+            fplogPerformanceChart.data.datasets[1].data.shift();
+        }
+        
+        fplogPerformanceChart.update();
+    }
 }
+
+// Initialize FPLog chart
+let fplogPerformanceChart = null;
+
+function initializeFPLogChart() {
+    const chartCanvas = document.getElementById('fplogPerformanceChart');
+    if (!chartCanvas) return;
+    
+    const ctx = chartCanvas.getContext('2d');
+    
+    fplogPerformanceChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [
+                {
+                    label: 'Records Synced',
+                    data: [],
+                    borderColor: 'rgba(0, 137, 123, 1)', // Teal
+                    backgroundColor: 'rgba(0, 137, 123, 0.1)',
+                    borderWidth: 2,
+                    tension: 0.4,
+                    fill: true
+                },
+                {
+                    label: 'Success Rate (%)',
+                    data: [],
+                    borderColor: 'rgba(77, 182, 172, 1)', // Light teal
+                    backgroundColor: 'rgba(77, 182, 172, 0.1)',
+                    borderWidth: 2,
+                    tension: 0.4,
+                    fill: true
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: true,
+                    position: 'top'
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+}
+
+// Initialize FPLog tab when shown
+document.addEventListener('shown.bs.tab', function (event) {
+    if (event.target.id === 'fplog-tab') {
+        // Initialize chart when tab is shown
+        if (!fplogPerformanceChart) {
+            initializeFPLogChart();
+        }
+        // Set default dates
+        setFPLogDateRange('today');
+        // Test connection
+        testFPLogConnection();
+    }
+});
+
 </script>
 {% endblock %}

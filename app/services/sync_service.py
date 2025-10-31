@@ -109,9 +109,17 @@ class SyncService:
         device_name = device_config['name']
         connection_type = device_config.get('connection_type', 'zk')
         
+        # Initialize sync status with appropriate initial status based on connection type
+        initial_status = 'reading' if connection_type == 'online_attendance' else 'connecting'
+        initial_message = (
+            'Reading attendance data from Online Attendance API...' 
+            if connection_type == 'online_attendance' 
+            else f'Connecting to {connection_type} device...'
+        )
+        
         self.sync_status[device_name] = {
-            'status': 'connecting',
-            'message': f'Connecting to {connection_type} device...',
+            'status': initial_status,
+            'message': initial_message,
             'start_time': datetime.now(),
             'records_synced': 0,
             'connection_type': connection_type
@@ -318,8 +326,10 @@ class SyncService:
             return False, error_msg
 
         try:
-            self.sync_status[device_name]['status'] = 'reading'
-            self.sync_status[device_name]['message'] = 'Reading attendance data from Online Attendance API...'
+            # Update status to reading if not already set
+            if self.sync_status[device_name]['status'] != 'reading':
+                self.sync_status[device_name]['status'] = 'reading'
+                self.sync_status[device_name]['message'] = 'Reading attendance data from Online Attendance API...'
 
             # Set default date range if not provided (e.g., today)
             if not start_date or not end_date:
@@ -335,65 +345,67 @@ class SyncService:
             
             if not success:
                 self.sync_status[device_name]['status'] = 'error'
-                self.sync_status[device_name]['message'] = f'Failed to fetch data from Online Attendance API: {message}'
+                self.sync_status[device_name]['message'] = f'Failed to sync data from Online Attendance API: {message}'
                 return False, message
 
-            # Get the data that was processed by sync_attendance_data
-            # Since sync_attendance_data saves to gagalabsens, we need to get attendance data differently
-            # fetch_success, attendance_data, fetch_msg = self.online_attendance_service.fetch_attendance_data(start_date_str, end_date_str)
+            # Update status to completed after successful sync
+            self.sync_status[device_name]['status'] = 'completed'
+            self.sync_status[device_name]['end_time'] = datetime.now()
             
-            # if not fetch_success:
-            #     self.sync_status[device_name]['status'] = 'error'
-            #     self.sync_status[device_name]['message'] = f'Failed to fetch attendance data: {fetch_msg}'
-            #     return False, fetch_msg
+            # Extract record count from the message if available
+            import re
+            record_match = re.search(r'(\d+)\s+records?', message, re.IGNORECASE)
+            if record_match:
+                records_synced = int(record_match.group(1))
+                self.sync_status[device_name]['records_synced'] = records_synced
+                self.sync_status[device_name]['message'] = f"Online Attendance sync completed successfully: {message}"
+                print(f"DEBUG: Online attendance sync completed with {records_synced} records")
+            else:
+                # If no record count found, try to get it from the service
+                try:
+                    # Get count of records processed today
+                    from config.database import db_manager
+                    conn = db_manager.get_connection()
+                    cursor = conn.cursor()
+                    
+                    # Count today's online attendance records
+                    today_str = datetime.now().strftime('%Y-%m-%d')
+                    cursor.execute("""
+                        SELECT COUNT(*) FROM gagalabsens 
+                        WHERE machine = 'online:0' 
+                        AND CONVERT(date, tgl) = ?
+                    """, (today_str,))
+                    
+                    count_result = cursor.fetchone()
+                    records_synced = count_result[0] if count_result else 0
+                    
+                    self.sync_status[device_name]['records_synced'] = records_synced
+                    self.sync_status[device_name]['message'] = f"Online Attendance sync completed successfully. {records_synced} records found for {start_date_str} to {end_date_str}"
+                    
+                    conn.close()
+                    print(f"DEBUG: Online attendance sync completed. Records found: {records_synced}")
+                    
+                except Exception as count_e:
+                    print(f"Warning: Could not get record count: {count_e}")
+                    self.sync_status[device_name]['records_synced'] = 0
+                    self.sync_status[device_name]['message'] = f"Online Attendance sync completed successfully: {message}"
+                    print("DEBUG: Online attendance sync completed without record count")
             
-            # if not attendance_data:
-            #     self.sync_status[device_name]['status'] = 'completed'
-            #     self.sync_status[device_name]['message'] = 'No new data found from Online Attendance API'
-            #     return True, 'No new data found'
-
-            # Transform data for attendance queue
-            # self.sync_status[device_name]['status'] = 'queuing'
-            # self.sync_status[device_name]['message'] = f'Adding {len(attendance_data)} online attendance records to queue with duplicate check...'
-
-            # queue_records = []
-            # for record in attendance_data:
-            #     # Process the record to extract needed fields
-            #     processed_record = self.online_attendance_service.process_attendance_record(record)
-                
-            #     queue_record = {
-            #         'pin': str(processed_record['pin']),
-            #         'date': processed_record['tgl'],  # Already in string format from process_attendance_record
-            #         'status': 'baru',
-            #         'machine': str(processed_record['machine']),
-            #         'punch_code': processed_record.get('status', None)  # Use the original status as punch_code
-            #     }
-            #     queue_records.append(queue_record)
-
-            # Use enhanced duplicate check method for better duplicate detection
-            # success, message = self.attendance_model.bulk_add_to_attendance_queue_enhanced(queue_records)
-
-            # if success:
-            #     self.sync_status[device_name]['status'] = 'completed'
-            #     self.sync_status[device_name]['message'] = f"Online Attendance sync completed: {message}"
-            #     # Extract actual number of inserted records from message
-            #     import re
-            #     match = re.search(r'Inserted: (\d+)', message)
-            #     records_synced = int(match.group(1)) if match else len(queue_records)
-            #     self.sync_status[device_name]['records_synced'] = records_synced
-            #     return True, self.sync_status[device_name]['message']
-            # else:
-            #     self.sync_status[device_name]['status'] = 'error'
-            #     self.sync_status[device_name]['message'] = f"Failed to queue Online Attendance records: {message}"
-            #     return False, self.sync_status[device_name]['message']
+            print(f"DEBUG: Final status for {device_name}: {self.sync_status[device_name]}")
+            return True, self.sync_status[device_name]['message']
 
         except Exception as e:
             error_msg = f"Error syncing Online Attendance device {device_name}: {str(e)}"
             self.sync_status[device_name]['status'] = 'error'
             self.sync_status[device_name]['message'] = error_msg
+            self.sync_status[device_name]['end_time'] = datetime.now()
+            print(f"DEBUG: Error in online attendance sync: {error_msg}")
             return False, error_msg
         finally:
-            self.sync_status[device_name]['end_time'] = datetime.now()
+            # Ensure end_time is always set
+            if 'end_time' not in self.sync_status[device_name]:
+                self.sync_status[device_name]['end_time'] = datetime.now()
+            print(f"DEBUG: Finally block executed for {device_name}. Final status: {self.sync_status[device_name]['status']}")
     
     def _process_zk_fplog_data(self, device_name, fplog_data, fpid_mapped_count, start_date=None, end_date=None):
         """Process fplog data for ZK devices with specific handling"""
@@ -559,112 +571,218 @@ class SyncService:
     
     def _execute_procedures_after_sync(self, start_date, end_date, results):
         """Execute stored procedures after all devices are synchronized"""
-        # Wait for all device sync threads to complete
-        max_wait_time = 300  # 5 minutes timeout
+        # IMPROVED: Wait for all device sync to complete with proper status checking
+        max_wait_time = 1800  # 30 minutes timeout (increased for slow device sync)
         wait_start = time.time()
         
-        while time.time() - wait_start < max_wait_time:
-            all_completed = True
-            for device_name, thread in self.sync_threads.items():
-                if thread.is_alive():
-                    all_completed = False
-                    break
-            
-            if all_completed:
-                break
-            
-            time.sleep(2)  # Check every 2 seconds
+        # Variable untuk menampung device yang telah selesai sync
+        completed_devices_tracker = set()
+        total_devices = len(self.devices)
         
-        # Check if any devices failed or are still running
+        print(f"⏳ Waiting for all {total_devices} devices to complete synchronization before executing procedures...")
+        print(f"⏰ Maximum wait time: {max_wait_time/60} minutes")
+        
+        while time.time() - wait_start < max_wait_time:
+            # Reset tracker setiap iterasi untuk validasi ulang
+            completed_devices_tracker.clear()
+            
+            # Cek status setiap device
+            for device in self.devices:
+                device_name = device['name']
+                
+                # Cek apakah device ada di sync_status dan statusnya completed atau error
+                if device_name in self.sync_status:
+                    device_status = self.sync_status[device_name].get('status', '')
+                    
+                    # Device dianggap selesai jika status: completed, error, atau cancelled
+                    if device_status in ['completed', 'error', 'cancelled']:
+                        completed_devices_tracker.add(device_name)
+                        print(f"✓ Device '{device_name}' status: {device_status}")
+            
+            # Cek apakah semua device sudah selesai
+            if len(completed_devices_tracker) == total_devices:
+                print(f"✅ All {total_devices} devices have completed synchronization!")
+                
+                # CRITICAL: Add extra delay after all devices completed to ensure data is fully written
+                extra_delay = 10  # 10 seconds safety delay
+                print(f"⏸️  Adding {extra_delay} seconds safety delay to ensure all data is written to database...")
+                time.sleep(extra_delay)
+                print(f"✅ Safety delay completed. Ready to execute stored procedures.")
+                
+                break
+            else:
+                pending_count = total_devices - len(completed_devices_tracker)
+                elapsed_time = int(time.time() - wait_start)
+                print(f"⏳ Waiting... {len(completed_devices_tracker)}/{total_devices} devices completed. {pending_count} devices still syncing... (Elapsed: {elapsed_time}s)")
+                time.sleep(5)  # Check every 5 seconds (reduced frequency)
+        
+        # Validasi akhir: Kategorisasi device berdasarkan status
         failed_devices = []
         running_devices = []
         successful_devices = []
+        cancelled_devices = []
         
-        for device_name, thread in self.sync_threads.items():
-            if thread.is_alive():
-                running_devices.append(device_name)
-            elif device_name in results:
-                if results[device_name]['success']:
+        for device in self.devices:
+            device_name = device['name']
+            
+            if device_name in self.sync_status:
+                device_status = self.sync_status[device_name].get('status', 'unknown')
+                
+                if device_status == 'completed':
                     successful_devices.append(device_name)
-                else:
+                elif device_status == 'error':
                     failed_devices.append(device_name)
+                elif device_status == 'cancelled':
+                    cancelled_devices.append(device_name)
+                else:
+                    # Status masih syncing, connecting, reading, dll (timeout)
+                    running_devices.append(device_name)
+            else:
+                # Device tidak ada di sync_status (belum diproses)
+                # Device tidak ada di sync_status (belum diproses)
+                running_devices.append(device_name)
+        
+        # Log hasil final kategorisasi
+        print(f"\n{'='*60}")
+        print(f"DEVICE SYNCHRONIZATION SUMMARY")
+        print(f"{'='*60}")
+        print(f"✅ Successful: {len(successful_devices)} devices")
+        if successful_devices:
+            for dev in successful_devices:
+                print(f"   - {dev}")
+        
+        print(f"❌ Failed: {len(failed_devices)} devices")
+        if failed_devices:
+            for dev in failed_devices:
+                print(f"   - {dev}")
+        
+        print(f"⏸️  Cancelled: {len(cancelled_devices)} devices")
+        if cancelled_devices:
+            for dev in cancelled_devices:
+                print(f"   - {dev}")
+        
+        print(f"⏳ Timeout/Still Running: {len(running_devices)} devices")
+        if running_devices:
+            for dev in running_devices:
+                print(f"   - {dev}")
+        print(f"{'='*60}\n")
         
         # Update sync status to show procedure execution phase
         procedure_status = {
-            'status': 'executing_procedures',
-            'message': f'Device sync completed. Successful: {len(successful_devices)}, Failed: {len(failed_devices)}, Timeout: {len(running_devices)}. Executing stored procedures...',
+            'status': 'waiting',
+            'message': f'Device sync completed. Successful: {len(successful_devices)}, Failed: {len(failed_devices)}, Cancelled: {len(cancelled_devices)}, Timeout: {len(running_devices)}. Checking if procedures can be executed...',
             'start_time': datetime.now(),
             'successful_devices': successful_devices,
             'failed_devices': failed_devices,
-            'timeout_devices': running_devices
+            'cancelled_devices': cancelled_devices,
+            'timeout_devices': running_devices,
+            'total_devices': total_devices,
+            'completed_devices_count': len(successful_devices) + len(failed_devices) + len(cancelled_devices)
         }
         
         # Add procedure status to sync_status
         self.sync_status['_procedures'] = procedure_status
         
-        # Execute stored procedures if we have date range
-        if start_date and end_date:
-            try:
-                # Format dates for procedure execution
-                start_date_str = start_date.strftime('%Y-%m-%d') if hasattr(start_date, 'strftime') else str(start_date)
-                end_date_str = end_date.strftime('%Y-%m-%d') if hasattr(end_date, 'strftime') else str(end_date)
+        # CRITICAL CHECK: Hanya jalankan procedure jika SEMUA device sudah completed
+        all_devices_finished = len(completed_devices_tracker) == total_devices
+        
+        if not all_devices_finished:
+            error_msg = f"❌ PROCEDURE EXECUTION BLOCKED: Not all devices completed. {len(completed_devices_tracker)}/{total_devices} devices finished."
+            print(error_msg)
+            print(f"⚠️  Devices still syncing or timed out: {running_devices}")
+            
+            self.sync_status['_procedures']['status'] = 'blocked'
+            self.sync_status['_procedures']['message'] = error_msg
+            self.sync_status['_procedures']['end_time'] = datetime.now()
+            print(f"Procedure execution BLOCKED: {error_msg}")
+            return
+        
+        # Additional check: Pastikan minimal ada successful devices
+        if len(successful_devices) == 0:
+            error_msg = f"❌ PROCEDURE EXECUTION BLOCKED: No successful device synchronization."
+            print(error_msg)
+            
+            self.sync_status['_procedures']['status'] = 'blocked'
+            self.sync_status['_procedures']['message'] = error_msg
+            self.sync_status['_procedures']['end_time'] = datetime.now()
+            print(f"Procedure execution BLOCKED: {error_msg}")
+            return
+        
+        # Jika ada device yang timeout, log warning tapi tetap lanjut jika mayoritas sukses
+        if len(running_devices) > 0:
+            warning_msg = f"⚠️  WARNING: {len(running_devices)} device(s) timed out but all devices reached final state. Proceeding with procedure execution..."
+            print(warning_msg)
+        
+        print(f"✅ All {total_devices} devices have reached final state. Proceeding with stored procedure execution...")
+        procedure_status['status'] = 'executing_procedures'
+        procedure_status['message'] = f'All devices completed. Executing stored procedures...'
+        
+        # Execute stored procedures
+        # If no date range provided, use default: 3 days ago to today
+        if not start_date or not end_date:
+            print("⚠️  No date range provided for sync. Using default: last 3 days")
+            today = datetime.now().date()
+            start_date = today - timedelta(days=3)
+            end_date = today
+            print(f"📅 Default date range set: {start_date} to {end_date} (3 days)")
+        
+        try:
+            # Format dates for procedure execution
+            start_date_str = start_date.strftime('%Y-%m-%d') if hasattr(start_date, 'strftime') else str(start_date)
+            end_date_str = end_date.strftime('%Y-%m-%d') if hasattr(end_date, 'strftime') else str(end_date)
+            
+            print(f"Executing stored procedures for date range: {start_date_str} to {end_date_str}")
+            
+            # Execute attrecord procedure FIRST
+            self.sync_status['_procedures']['message'] = 'Executing attrecord procedure...'
+            print("🔄 Step 1: Executing attrecord procedure...")
+            attrecord_success, attrecord_message = self.attendance_model.execute_attrecord_procedure(
+                start_date_str, end_date_str
+            )
+            
+            if attrecord_success:
+                print(f"✅ Step 1 completed: attrecord procedure successful - {attrecord_message}")
                 
-                print(f"Executing stored procedures for date range: {start_date_str} to {end_date_str}")
-                
-                # Execute attrecord procedure FIRST
-                self.sync_status['_procedures']['message'] = 'Executing attrecord procedure...'
-                print("🔄 Step 1: Executing attrecord procedure...")
-                attrecord_success, attrecord_message = self.attendance_model.execute_attrecord_procedure(
+                # Only execute spJamkerja if attrecord was successful
+                self.sync_status['_procedures']['message'] = 'Executing spJamkerja procedure...'
+                print("🔄 Step 2: Executing spJamkerja procedure...")
+                spjamkerja_success, spjamkerja_message = self.attendance_model.execute_spjamkerja_procedure(
                     start_date_str, end_date_str
                 )
                 
-                if attrecord_success:
-                    print(f"✅ Step 1 completed: attrecord procedure successful - {attrecord_message}")
-                    
-                    # Only execute spJamkerja if attrecord was successful
-                    self.sync_status['_procedures']['message'] = 'Executing spJamkerja procedure...'
-                    print("🔄 Step 2: Executing spJamkerja procedure...")
-                    spjamkerja_success, spjamkerja_message = self.attendance_model.execute_spjamkerja_procedure(
-                        start_date_str, end_date_str
-                    )
-                    
-                    if spjamkerja_success:
-                        print(f"✅ Step 2 completed: spJamkerja procedure successful - {spjamkerja_message}")
-                    else:
-                        print(f"❌ Step 2 failed: spJamkerja procedure failed - {spjamkerja_message}")
+                if spjamkerja_success:
+                    print(f"✅ Step 2 completed: spJamkerja procedure successful - {spjamkerja_message}")
                 else:
-                    print(f"❌ Step 1 failed: attrecord procedure failed - {attrecord_message}")
-                    print("⚠️  Step 2 skipped: spJamkerja procedure will not be executed due to attrecord failure")
-                    spjamkerja_success = False
-                    spjamkerja_message = "Skipped due to attrecord procedure failure"
+                    print(f"❌ Step 2 failed: spJamkerja procedure failed - {spjamkerja_message}")
+            else:
+                print(f"❌ Step 1 failed: attrecord procedure failed - {attrecord_message}")
+                print("⚠️  Step 2 skipped: spJamkerja procedure will not be executed due to attrecord failure")
+                spjamkerja_success = False
+                spjamkerja_message = "Skipped due to attrecord procedure failure"
+            
+            # Update final status
+            if attrecord_success and spjamkerja_success:
+                self.sync_status['_procedures']['status'] = 'completed'
+                self.sync_status['_procedures']['message'] = f'All procedures completed successfully. Device sync - Successful: {len(successful_devices)}, Failed: {len(failed_devices)}'
+            else:
+                self.sync_status['_procedures']['status'] = 'partial_error'
+                error_details = []
+                if not attrecord_success:
+                    error_details.append(f"attrecord: {attrecord_message}")
+                if not spjamkerja_success:
+                    error_details.append(f"spJamkerja: {spjamkerja_message}")
+                self.sync_status['_procedures']['message'] = f'Some procedures failed: {"; ".join(error_details)}'
+            
+            self.sync_status['_procedures']['attrecord_success'] = attrecord_success
+            self.sync_status['_procedures']['attrecord_message'] = attrecord_message
+            self.sync_status['_procedures']['spjamkerja_success'] = spjamkerja_success
+            self.sync_status['_procedures']['spjamkerja_message'] = spjamkerja_message
                 
-                # Update final status
-                if attrecord_success and spjamkerja_success:
-                    self.sync_status['_procedures']['status'] = 'completed'
-                    self.sync_status['_procedures']['message'] = f'All procedures completed successfully. Device sync - Successful: {len(successful_devices)}, Failed: {len(failed_devices)}'
-                else:
-                    self.sync_status['_procedures']['status'] = 'partial_error'
-                    error_details = []
-                    if not attrecord_success:
-                        error_details.append(f"attrecord: {attrecord_message}")
-                    if not spjamkerja_success:
-                        error_details.append(f"spJamkerja: {spjamkerja_message}")
-                    self.sync_status['_procedures']['message'] = f'Some procedures failed: {"; ".join(error_details)}'
-                
-                self.sync_status['_procedures']['attrecord_success'] = attrecord_success
-                self.sync_status['_procedures']['attrecord_message'] = attrecord_message
-                self.sync_status['_procedures']['spjamkerja_success'] = spjamkerja_success
-                self.sync_status['_procedures']['spjamkerja_message'] = spjamkerja_message
-                
-            except Exception as e:
-                error_msg = f"Error executing stored procedures: {str(e)}"
-                print(f"❌ {error_msg}")
-                self.sync_status['_procedures']['status'] = 'error'
-                self.sync_status['_procedures']['message'] = error_msg
-        else:
-            # No date range provided
-            self.sync_status['_procedures']['status'] = 'skipped'
-            self.sync_status['_procedures']['message'] = 'Stored procedures skipped - no date range provided'
+        except Exception as e:
+            error_msg = f"Error executing stored procedures: {str(e)}"
+            print(f"❌ {error_msg}")
+            self.sync_status['_procedures']['status'] = 'error'
+            self.sync_status['_procedures']['message'] = error_msg
         
         self.sync_status['_procedures']['end_time'] = datetime.now()
         print(f"Procedure execution completed: {self.sync_status['_procedures']['message']}")
