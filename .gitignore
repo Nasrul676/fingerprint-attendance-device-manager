@@ -185,6 +185,7 @@ reports/*.csv
 
 # Fingerprint device configs (may contain sensitive info)
 devices.config
+config/
 
 # Local development files
 local_config.py
